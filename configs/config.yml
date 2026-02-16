@@ -1,0 +1,67 @@
+data:
+  input_path: data/raw/synthetic_marine_extended_unlabelled_dataset.csv
+  timestamp_col: DATE
+  station_col: STATION
+  numeric_columns:
+    - LATITUDE
+    - LONGITUDE
+    - WIND_SPEED
+    - SEA_LVL_PRES
+    - AIR_TEMP
+    - SEA_SURF_TEMP
+    - WAVE_PERIOD
+    - WAVE_HGT
+    - SWELL_PERIOD
+    - SWELL_HGT
+    - TOT_CLD_AMT
+  directional_columns:
+    - WIND_DIR
+    - WAVE_DIR
+    - SWELL_DIR
+  resample_rule: 1H
+
+preprocess:
+  small_gap_limit: 2
+  medium_gap_limit: 6
+  drop_large_gap_rows: false
+  clip_quantile_low: 0.005
+  clip_quantile_high: 0.995
+
+features:
+  window_size: 12
+  step_size: 6
+  rolling_features:
+    - mean
+    - std
+    - min
+    - max
+    - energy
+
+models:
+  candidate_states: [2, 3, 4, 5, 6]
+  random_state: 42
+  hmm_covariance_type: diag
+  min_segment_length: 2
+
+evaluation:
+  boundary_tolerance_steps: 2
+
+app:
+  app_title: Marine Regime Discovery Dashboard
+  author: Rishabh Gokhe
+
+tracking:
+  enabled: false
+  tracking_uri: file:./mlruns
+  experiment_name: marine-regime-discovery
+  run_name: baseline-run
+  log_artifacts: true
+
+deep:
+  enabled: false
+  seq_len: 8
+  hidden_dim: 64
+  latent_dim: 32
+  epochs: 20
+  batch_size: 64
+  learning_rate: 0.001

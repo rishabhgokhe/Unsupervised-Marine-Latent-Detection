@@ -1,0 +1,217 @@
+from __future__ import annotations
+
+import json
+import logging
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Dict, Optional
+
+import joblib
+import numpy as np
+import pandas as pd
+
+from src.core.config import ProjectConfig
+from src.data.ingest import read_csv_dataset, resample_by_station
+from src.data.preprocess import quality_preprocess
+from src.evaluation.metrics import cluster_quality_scores
+from src.features.windows import WindowedFeatures, build_sliding_windows
+from src.models.changepoint import ChangePointResult, detect_changepoints
+from src.models.clustering import ClusterRunOutput, run_clustering_baselines
+from src.models.deep_autoencoder import run_lstm_autoencoder_segmentation
+from src.models.hmm_model import HMMResult, run_hmm
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class PipelineResult:
+    processed_data: pd.DataFrame
+    windowed: WindowedFeatures
+    model_labels: Dict[str, np.ndarray]
+    model_metrics: Dict[str, Dict[str, float]]
+    quality_report: Dict
+    changepoints: Optional[ChangePointResult]
+
+
+def _ensure_features(cfg: ProjectConfig, df: pd.DataFrame) -> list[str]:
+    if cfg.data.numeric_columns:
+        return cfg.data.numeric_columns
+    auto_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
+    auto_cols = [c for c in auto_cols if c not in [cfg.data.station_col]]
+    return auto_cols
+
+
+def _postprocess_short_segments(labels: np.ndarray, min_len: int) -> np.ndarray:
+    out = labels.copy()
+    n = len(out)
+    if n == 0:
+        return out
+
+    start = 0
+    while start < n:
+        end = start + 1
+        while end < n and out[end] == out[start]:
+            end += 1
+        seg_len = end - start
+        if seg_len < min_len:
+            prev_label = out[start - 1] if start > 0 else None
+            next_label = out[end] if end < n else None
+            fill_label = prev_label if prev_label is not None else next_label
+            if fill_label is not None:
+                out[start:end] = fill_label
+        start = end
+    return out
+
+
+def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
+    logger.info("Loading dataset from %s", cfg.data.input_path)
+    base_df = read_csv_dataset(
+        path=cfg.data.input_path,
+        timestamp_col=cfg.data.timestamp_col,
+        station_col=cfg.data.station_col,
+        expected_columns=[*cfg.data.numeric_columns, *cfg.data.directional_columns],
+    )
+
+    features = _ensure_features(cfg, base_df)
+    logger.info("Using %d numeric columns", len(features))
+
+    aligned = resample_by_station(
+        base_df,
+        station_col=cfg.data.station_col,
+        timestamp_col=cfg.data.timestamp_col,
+        numeric_columns=features,
+        rule=cfg.data.resample_rule,
+    )
+
+    processed, quality = quality_preprocess(
+        aligned,
+        group_col=cfg.data.station_col,
+        timestamp_col=cfg.data.timestamp_col,
+        numeric_columns=features,
+        directional_columns=cfg.data.directional_columns,
+        small_gap_limit=cfg.preprocess.small_gap_limit,
+        medium_gap_limit=cfg.preprocess.medium_gap_limit,
+        drop_large_gap_rows=cfg.preprocess.drop_large_gap_rows,
+        low_q=cfg.preprocess.clip_quantile_low,
+        high_q=cfg.preprocess.clip_quantile_high,
+    )
+
+    directional_encoded = [f"{c}_sin" for c in cfg.data.directional_columns] + [f"{c}_cos" for c in cfg.data.directional_columns]
+    model_feature_cols = list(dict.fromkeys([*features, *[c for c in directional_encoded if c in processed.columns]]))
+
+    windowed = build_sliding_windows(
+        processed,
+        station_col=cfg.data.station_col,
+        timestamp_col=cfg.data.timestamp_col,
+        feature_columns=model_feature_cols,
+        window_size=cfg.features.window_size,
+        step_size=cfg.features.step_size,
+        stats=cfg.features.rolling_features,
+    )
+
+    cluster_output: ClusterRunOutput = run_clustering_baselines(
+        windowed.X,
+        candidate_states=cfg.models.candidate_states,
+        random_state=cfg.models.random_state,
+    )
+
+    labels: Dict[str, np.ndarray] = {}
+    metrics: Dict[str, Dict[str, float]] = {}
+
+    for model_result in cluster_output.results:
+        denoised = _postprocess_short_segments(model_result.labels, cfg.models.min_segment_length)
+        labels[model_result.name] = denoised
+        quality_score = cluster_quality_scores(cluster_output.transformed, denoised)
+        metrics[model_result.name] = {
+            **model_result.score_summary,
+            "n_states": float(model_result.n_states),
+            "silhouette_post": float(quality_score.silhouette),
+            "davies_bouldin": float(quality_score.davies_bouldin),
+        }
+
+    hmm_result: Optional[HMMResult] = run_hmm(
+        cluster_output.transformed,
+        candidate_states=cfg.models.candidate_states,
+        covariance_type=cfg.models.hmm_covariance_type,
+        random_state=cfg.models.random_state,
+    )
+    if hmm_result is not None:
+        hmm_labels = _postprocess_short_segments(hmm_result.labels, cfg.models.min_segment_length)
+        labels["hmm"] = hmm_labels
+        hmm_quality = cluster_quality_scores(cluster_output.transformed, hmm_labels)
+        metrics["hmm"] = {
+            "n_states": float(hmm_result.n_states),
+            "log_likelihood": float(hmm_result.log_likelihood),
+            "silhouette_post": float(hmm_quality.silhouette),
+            "davies_bouldin": float(hmm_quality.davies_bouldin),
+        }
+    else:
+        logger.warning("hmmlearn not installed or HMM fit failed; skipping HMM")
+
+    cp_result = detect_changepoints(cluster_output.transformed)
+    if cp_result is not None:
+        metrics["changepoint"] = {"n_breaks": float(cp_result.n_breaks)}
+
+    if cfg.deep.enabled:
+        deep_result = run_lstm_autoencoder_segmentation(
+            cluster_output.transformed,
+            candidate_states=cfg.models.candidate_states,
+            random_state=cfg.models.random_state,
+            seq_len=cfg.deep.seq_len,
+            hidden_dim=cfg.deep.hidden_dim,
+            latent_dim=cfg.deep.latent_dim,
+            epochs=cfg.deep.epochs,
+            batch_size=cfg.deep.batch_size,
+            learning_rate=cfg.deep.learning_rate,
+        )
+        if deep_result is not None:
+            deep_labels = _postprocess_short_segments(deep_result.labels, cfg.models.min_segment_length)
+            labels["deep_lstm_ae"] = deep_labels
+            deep_quality = cluster_quality_scores(cluster_output.transformed, deep_labels)
+            metrics["deep_lstm_ae"] = {
+                "n_states": float(deep_result.n_states),
+                "train_loss": float(deep_result.train_loss),
+                "silhouette_embed": float(deep_result.silhouette),
+                "silhouette_post": float(deep_quality.silhouette),
+                "davies_bouldin": float(deep_quality.davies_bouldin),
+            }
+        else:
+            logger.warning("Deep LSTM autoencoder unavailable or failed; skipping deep model")
+
+    return PipelineResult(
+        processed_data=processed,
+        windowed=windowed,
+        model_labels=labels,
+        model_metrics=metrics,
+        quality_report={
+            "missing_ratio_before": quality.missing_ratio_before,
+            "missing_ratio_after": quality.missing_ratio_after,
+            "outlier_clip_bounds": quality.outlier_clip_bounds,
+        },
+        changepoints=cp_result,
+    )
+
+
+def save_artifacts(result: PipelineResult, output_dir: str | Path) -> None:
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+
+    result.processed_data.to_csv(out / "processed_data.csv", index=False)
+    result.windowed.X.to_csv(out / "window_features.csv", index=False)
+
+    label_df = result.windowed.meta.copy()
+    for model_name, model_labels in result.model_labels.items():
+        label_df[f"regime_{model_name}"] = model_labels
+    label_df.to_csv(out / "window_regimes.csv", index=False)
+
+    with (out / "model_metrics.json").open("w", encoding="utf-8") as fp:
+        json.dump(result.model_metrics, fp, indent=2)
+
+    with (out / "quality_report.json").open("w", encoding="utf-8") as fp:
+        json.dump(result.quality_report, fp, indent=2)
+
+    if result.changepoints is not None:
+        with (out / "changepoints.json").open("w", encoding="utf-8") as fp:
+            json.dump(asdict(result.changepoints), fp, indent=2)
+
+    joblib.dump(result.model_labels, out / "labels.joblib")

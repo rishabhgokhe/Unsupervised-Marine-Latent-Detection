@@ -1,9 +1,8 @@
+.git
+.github
 __pycache__/
 *.pyc
 .venv/
-.env
-.DS_Store
 outputs/
 mlruns/
-*.ipynb_checkpoints
 .pytest_cache/
