@@ -42,6 +42,7 @@ models:
   random_state: 42
   hmm_covariance_type: diag
   min_segment_length: 2
+  n_super_regimes: 3
 
 evaluation:
   boundary_tolerance_steps: 2
@@ -59,9 +60,12 @@ tracking:
 
 deep:
   enabled: false
+  enable_vae: false
   seq_len: 8
   hidden_dim: 64
   latent_dim: 32
   epochs: 20
   batch_size: 64
   learning_rate: 0.001
+  vae_latent_dim: 8
+  vae_beta: 1.0

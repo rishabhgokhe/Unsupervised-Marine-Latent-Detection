@@ -143,3 +143,26 @@ GitHub Actions workflow at `.github/workflows/ci.yml` runs:
 - dependency install
 - Python compile check
 - pytest suite
+
+## Phase Roadmap
+
+1. Phase 1: Data and Foundation
+2. Phase 2: Feature Engineering
+3. Phase 3: Autoencoder and VAE Ablation
+4. Phase 4: HMM Regime Modeling
+5. Phase 5: Hierarchical Regime Grouping (Agglomerative)
+6. Phase 6: Evaluation and Comparison
+7. Phase 7: Streamlit App
+
+## Notebook Workflow
+
+Notebook files are available in `notebooks/`:
+- `notebooks/00_data_ingest_qc.ipynb`
+- `notebooks/01_eda_preprocess.ipynb`
+- `notebooks/02_feature_engineering.ipynb`
+- `notebooks/03_baseline_kmeans_gmm.ipynb`
+- `notebooks/04_hmm_regimes.ipynb`
+- `notebooks/05_autoencoder_vae_ablation.ipynb`
+- `notebooks/06_hierarchical_regime_analysis.ipynb`
+- `notebooks/07_evaluation_and_comparison.ipynb`
+- `notebooks/08_streamlit_demo_checks.ipynb`

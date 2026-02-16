@@ -33,9 +33,13 @@ def main() -> None:
     cfg = load_config(cfg_path)
     st.sidebar.subheader("Model Controls")
     cfg.deep.enabled = st.sidebar.checkbox("Enable Deep LSTM Autoencoder", value=cfg.deep.enabled)
+    cfg.deep.enable_vae = st.sidebar.checkbox("Enable VAE Ablation", value=cfg.deep.enable_vae)
     if cfg.deep.enabled:
         cfg.deep.epochs = st.sidebar.slider("Deep Epochs", min_value=5, max_value=100, value=cfg.deep.epochs, step=5)
         cfg.deep.seq_len = st.sidebar.slider("Deep Sequence Length", min_value=2, max_value=24, value=cfg.deep.seq_len, step=1)
+    if cfg.deep.enable_vae:
+        cfg.deep.vae_latent_dim = st.sidebar.slider("VAE Latent Dim", min_value=2, max_value=64, value=cfg.deep.vae_latent_dim, step=2)
+        cfg.deep.vae_beta = st.sidebar.slider("VAE Beta", min_value=0.1, max_value=5.0, value=float(cfg.deep.vae_beta), step=0.1)
 
     st.title(cfg.app.app_title)
     st.caption("Unsupervised hidden-regime discovery for multivariate marine time-series")

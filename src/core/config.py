@@ -39,6 +39,7 @@ class ModelConfig:
     random_state: int = 42
     hmm_covariance_type: str = "diag"
     min_segment_length: int = 3
+    n_super_regimes: int = 3
 
 
 @dataclass
@@ -64,12 +65,15 @@ class TrackingConfig:
 @dataclass
 class DeepConfig:
     enabled: bool = False
+    enable_vae: bool = False
     seq_len: int = 8
     hidden_dim: int = 64
     latent_dim: int = 32
     epochs: int = 20
     batch_size: int = 64
     learning_rate: float = 0.001
+    vae_latent_dim: int = 8
+    vae_beta: float = 1.0
 
 
 @dataclass
@@ -131,6 +135,7 @@ def load_config(path: str | Path) -> ProjectConfig:
             random_state=int(_get(model_raw, "random_state", 42)),
             hmm_covariance_type=str(_get(model_raw, "hmm_covariance_type", "diag")),
             min_segment_length=int(_get(model_raw, "min_segment_length", 3)),
+            n_super_regimes=int(_get(model_raw, "n_super_regimes", 3)),
         ),
         evaluation=EvalConfig(
             boundary_tolerance_steps=int(_get(eval_raw, "boundary_tolerance_steps", 2)),
@@ -148,11 +153,14 @@ def load_config(path: str | Path) -> ProjectConfig:
         ),
         deep=DeepConfig(
             enabled=bool(_get(deep_raw, "enabled", False)),
+            enable_vae=bool(_get(deep_raw, "enable_vae", False)),
             seq_len=int(_get(deep_raw, "seq_len", 8)),
             hidden_dim=int(_get(deep_raw, "hidden_dim", 64)),
             latent_dim=int(_get(deep_raw, "latent_dim", 32)),
             epochs=int(_get(deep_raw, "epochs", 20)),
             batch_size=int(_get(deep_raw, "batch_size", 64)),
             learning_rate=float(_get(deep_raw, "learning_rate", 0.001)),
+            vae_latent_dim=int(_get(deep_raw, "vae_latent_dim", 8)),
+            vae_beta=float(_get(deep_raw, "vae_beta", 1.0)),
         ),
     )

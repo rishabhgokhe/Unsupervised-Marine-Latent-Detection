@@ -37,7 +37,9 @@ def main() -> None:
                 "window_size": cfg.features.window_size,
                 "step_size": cfg.features.step_size,
                 "candidate_states": ",".join(map(str, cfg.models.candidate_states)),
+                "n_super_regimes": cfg.models.n_super_regimes,
                 "deep_enabled": cfg.deep.enabled,
+                "deep_enable_vae": cfg.deep.enable_vae,
             }
         )
 

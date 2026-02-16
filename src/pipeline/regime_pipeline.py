@@ -18,7 +18,9 @@ from src.features.windows import WindowedFeatures, build_sliding_windows
 from src.models.changepoint import ChangePointResult, detect_changepoints
 from src.models.clustering import ClusterRunOutput, run_clustering_baselines
 from src.models.deep_autoencoder import run_lstm_autoencoder_segmentation
+from src.models.hierarchy import build_hierarchical_regimes
 from src.models.hmm_model import HMMResult, run_hmm
+from src.models.vae_model import run_vae_ablation
 
 logger = logging.getLogger(__name__)
 
@@ -177,6 +179,51 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
             }
         else:
             logger.warning("Deep LSTM autoencoder unavailable or failed; skipping deep model")
+
+    if cfg.deep.enable_vae:
+        vae_result = run_vae_ablation(
+            cluster_output.transformed,
+            candidate_states=cfg.models.candidate_states,
+            random_state=cfg.models.random_state,
+            latent_dim=cfg.deep.vae_latent_dim,
+            hidden_dim=cfg.deep.hidden_dim,
+            epochs=cfg.deep.epochs,
+            batch_size=cfg.deep.batch_size,
+            learning_rate=cfg.deep.learning_rate,
+            beta=cfg.deep.vae_beta,
+        )
+        if vae_result is not None:
+            vae_labels = _postprocess_short_segments(vae_result.labels, cfg.models.min_segment_length)
+            labels["vae_ablation"] = vae_labels
+            vae_quality = cluster_quality_scores(cluster_output.transformed, vae_labels)
+            metrics["vae_ablation"] = {
+                "n_states": float(vae_result.n_states),
+                "recon_loss": float(vae_result.recon_loss),
+                "kl_loss": float(vae_result.kl_loss),
+                "silhouette_embed": float(vae_result.silhouette),
+                "silhouette_post": float(vae_quality.silhouette),
+                "davies_bouldin": float(vae_quality.davies_bouldin),
+            }
+        else:
+            logger.warning("VAE ablation unavailable or failed; skipping VAE")
+
+    hierarchy_source = None
+    for candidate in ("hmm", "vae_ablation", "deep_lstm_ae", "gmm", "kmeans"):
+        if candidate in labels:
+            hierarchy_source = candidate
+            break
+    if hierarchy_source is not None:
+        hierarchy = build_hierarchical_regimes(
+            cluster_output.transformed,
+            labels[hierarchy_source],
+            n_super_regimes=cfg.models.n_super_regimes,
+        )
+        if hierarchy is not None:
+            labels["hierarchy_super"] = hierarchy.super_regimes
+            metrics["hierarchy_super"] = {
+                "source_model": float(list(labels.keys()).index(hierarchy_source)),
+                "n_super_regimes": float(hierarchy.n_super_regimes),
+            }
 
     return PipelineResult(
         processed_data=processed,
