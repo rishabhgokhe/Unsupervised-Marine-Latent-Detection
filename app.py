@@ -8,8 +8,18 @@ import pandas as pd
 import streamlit as st
 
 from src.core.config import ProjectConfig, load_config
+from src.evaluation.regime_summary import (
+    build_window_regime_frame,
+    infer_semantic_regime_names,
+    regime_summary_table,
+)
 from src.pipeline.regime_pipeline import run_pipeline, save_artifacts
-from src.visualization.plots import regime_timeline
+from src.visualization.plots import (
+    regime_distribution,
+    regime_timeline,
+    sensor_series_with_segments,
+    window_sensor_regime_chart,
+)
 
 
 @st.cache_data(show_spinner=False)
@@ -26,11 +36,21 @@ def _with_uploaded_data(cfg: ProjectConfig, uploaded_file) -> ProjectConfig:
     return cfg
 
 
+def _get_window_regime_df(result, selected_model: str) -> pd.DataFrame:
+    labels = result.model_labels[selected_model]
+    window_df = build_window_regime_frame(result.windowed.meta, result.windowed.X, labels)
+    name_map = infer_semantic_regime_names(window_df)
+    window_df["regime_name"] = window_df["regime_id"].map(name_map).fillna(window_df["regime_id"].astype(str))
+    return window_df
+
+
 def main() -> None:
+    st.set_page_config(page_title="Marine Regime Discovery", layout="wide")
+
     default_cfg_path = "configs/config.yml"
     cfg_path = st.sidebar.text_input("Config Path", value=default_cfg_path)
-
     cfg = load_config(cfg_path)
+
     st.sidebar.subheader("Model Controls")
     cfg.deep.enabled = st.sidebar.checkbox("Enable Deep LSTM Autoencoder", value=cfg.deep.enabled)
     cfg.deep.enable_vae = st.sidebar.checkbox("Enable VAE Ablation", value=cfg.deep.enable_vae)
@@ -54,58 +74,110 @@ def main() -> None:
     st.dataframe(preview_df, use_container_width=True)
 
     run_button = st.button("Run Full Pipeline", type="primary")
-    if not run_button:
+    if run_button:
+        with st.spinner("Running ingestion -> preprocessing -> features -> models -> evaluation"):
+            result = run_pipeline(cfg)
+        st.session_state["pipeline_result"] = result
+        st.success("Pipeline complete")
+
+    if "pipeline_result" not in st.session_state:
+        st.info("Run the pipeline to view regimes, charts, and statistics.")
         return
 
-    with st.spinner("Running ingestion -> preprocessing -> features -> models -> evaluation"):
-        result = run_pipeline(cfg)
-
-    st.success("Pipeline complete")
+    result = st.session_state["pipeline_result"]
+    if not result.model_labels:
+        st.error("No regime labels produced. Check data and model settings.")
+        return
 
     st.subheader("Model Metrics")
     metrics_df = pd.DataFrame(result.model_metrics).T
     st.dataframe(metrics_df, use_container_width=True)
 
-    st.subheader("Regime Timelines")
     available_models = sorted(result.model_labels.keys())
     selected_model = st.selectbox("Choose model", options=available_models)
-    fig = regime_timeline(
-        result.windowed.meta,
-        pd.Series(result.model_labels[selected_model]),
-        title=f"Window regimes ({selected_model})",
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    window_df = _get_window_regime_df(result, selected_model)
 
-    st.subheader("Quality Report")
-    st.json(result.quality_report)
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Total Windows", f"{len(window_df):,}")
+    c2.metric("Detected Regimes", int(window_df["regime_id"].nunique()))
+    c3.metric("Model", selected_model)
 
-    if result.changepoints is not None:
-        st.subheader("Detected Change Points")
-        st.write(result.changepoints.break_indices)
-
-    out_dir = Path("outputs") / "streamlit_latest"
-    save_artifacts(result, out_dir)
-
-    st.subheader("Download Artifacts")
-    st.caption(f"Artifacts saved at `{out_dir}`")
-
-    metrics_json = json.dumps(result.model_metrics, indent=2)
-    st.download_button(
-        label="Download model_metrics.json",
-        data=metrics_json,
-        file_name="model_metrics.json",
-        mime="application/json",
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(
+        ["Regime Timeline", "Regime Stats", "Sensor Charts", "Quality", "Downloads"]
     )
 
-    regimes_csv = result.windowed.meta.copy()
-    for name, labels in result.model_labels.items():
-        regimes_csv[f"regime_{name}"] = labels
-    st.download_button(
-        label="Download window_regimes.csv",
-        data=regimes_csv.to_csv(index=False).encode("utf-8"),
-        file_name="window_regimes.csv",
-        mime="text/csv",
-    )
+    with tab1:
+        st.plotly_chart(
+            regime_timeline(
+                window_df[["station", "start_time", "end_time", "start_idx", "end_idx"]],
+                window_df["regime_name"],
+                title=f"Regime Timeline ({selected_model})",
+            ),
+            use_container_width=True,
+        )
+
+    with tab2:
+        key_features = [c for c in ["WIND_SPEED_mean", "WAVE_HGT_mean", "SEA_LVL_PRES_mean", "AIR_TEMP_mean"] if c in window_df.columns]
+        summary_df = regime_summary_table(window_df, key_features)
+        st.dataframe(summary_df, use_container_width=True)
+        st.plotly_chart(regime_distribution(window_df, "Regime Distribution by Window Count"), use_container_width=True)
+
+    with tab3:
+        sensor_cols = [c for c in window_df.columns if c.endswith("_mean")]
+        if sensor_cols:
+            selected_sensor = st.selectbox("Window Sensor for Regime View", sensor_cols)
+            sensor_fig = window_sensor_regime_chart(
+                window_df,
+                sensor_mean_col=selected_sensor,
+                title=f"{selected_sensor} vs Time by Regime",
+            )
+            if result.changepoints is not None:
+                sorted_windows = window_df.sort_values("start_time").reset_index(drop=True)
+                cp_indices = [i for i in result.changepoints.break_indices if i < len(sorted_windows)]
+                for i in cp_indices:
+                    sensor_fig.add_vline(x=sorted_windows.loc[i, "start_time"], line_dash="dash", line_color="red")
+            st.plotly_chart(sensor_fig, use_container_width=True)
+
+        raw_sensor_options = [c for c in cfg.data.numeric_columns if c in result.processed_data.columns]
+        if raw_sensor_options:
+            raw_sensor = st.selectbox("Raw Sensor Series", raw_sensor_options)
+            st.plotly_chart(
+                sensor_series_with_segments(
+                    result.processed_data.sort_values(cfg.data.timestamp_col),
+                    timestamp_col=cfg.data.timestamp_col,
+                    value_col=raw_sensor,
+                    title=f"Raw Time Series: {raw_sensor}",
+                ),
+                use_container_width=True,
+            )
+
+    with tab4:
+        st.subheader("Quality Report")
+        st.json(result.quality_report)
+        if result.changepoints is not None:
+            st.subheader("Detected Change Points")
+            st.write(result.changepoints.break_indices)
+
+    with tab5:
+        out_dir = Path("outputs") / "streamlit_latest"
+        save_artifacts(result, out_dir)
+        st.caption(f"Artifacts saved at `{out_dir}`")
+
+        metrics_json = json.dumps(result.model_metrics, indent=2)
+        st.download_button(
+            label="Download model_metrics.json",
+            data=metrics_json,
+            file_name="model_metrics.json",
+            mime="application/json",
+        )
+
+        regimes_csv = window_df.copy()
+        st.download_button(
+            label="Download window_regimes_with_stats.csv",
+            data=regimes_csv.to_csv(index=False).encode("utf-8"),
+            file_name="window_regimes_with_stats.csv",
+            mime="text/csv",
+        )
 
 
 if __name__ == "__main__":
