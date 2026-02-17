@@ -204,9 +204,37 @@ def main() -> None:
         if trans and selected_model in trans:
             st.dataframe(pd.DataFrame(trans[selected_model]), use_container_width=True)
 
+        st.subheader("Transition Entropy")
+        ent = (diags.get("transition_entropy", {}) if diags else {})
+        if ent:
+            st.dataframe(pd.DataFrame.from_dict(ent, orient="index", columns=["entropy"]), use_container_width=True)
+
+        st.subheader("Seed Stability (ARI)")
+        stability = (diags.get("stability", {}) if diags else {})
+        if stability:
+            st.json(stability)
+
+        st.subheader("Change-Point Alignment")
+        cp_align = (diags.get("changepoint_alignment", {}) if diags else {})
+        if cp_align:
+            st.dataframe(pd.DataFrame(cp_align).T, use_container_width=True)
+
+        st.subheader("Sensitivity Summary")
+        sensitivity = (diags.get("sensitivity", {}) if diags else {})
+        if sensitivity:
+            st.json(sensitivity)
+
     with tab5:
         st.subheader("Quality Report")
         st.json(result.quality_report)
+        if result.diagnostics and result.diagnostics.get("domain_validation"):
+            st.subheader("Domain Validation")
+            st.json(result.diagnostics["domain_validation"])
+        if result.diagnostics and result.diagnostics.get("reconstruction_error"):
+            st.subheader("Dense AE Reconstruction Error")
+            rec = dict(result.diagnostics["reconstruction_error"])
+            rec.pop("per_window", None)
+            st.json(rec)
         if result.changepoints is not None:
             st.subheader("Detected Change Points")
             st.write(result.changepoints.break_indices)

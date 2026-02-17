@@ -13,6 +13,7 @@ from sklearn.preprocessing import StandardScaler
 class DenseAEOutput:
     latent_embeddings: np.ndarray
     reconstruction_mse: float
+    reconstruction_errors: np.ndarray
     final_train_loss: float
     state_dict: Any
     latent_pca_2d: np.ndarray
@@ -105,6 +106,24 @@ def reconstruction_error(model: Any, X: np.ndarray) -> Optional[float]:
     return float(mse)
 
 
+def reconstruction_per_window(model: Any, X: np.ndarray) -> Optional[np.ndarray]:
+    try:
+        import torch
+    except Exception:
+        return None
+
+    x_np = X.astype(np.float32)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.eval()
+    model = model.to(device)
+
+    with torch.no_grad():
+        x_tensor = torch.tensor(x_np, dtype=torch.float32).to(device)
+        recon, _ = model(x_tensor)
+        per_window = ((recon - x_tensor) ** 2).mean(dim=1).cpu().numpy()
+    return per_window
+
+
 def visualize_latent(latent: np.ndarray) -> Optional[np.ndarray]:
     try:
         import matplotlib.pyplot as plt
@@ -156,7 +175,8 @@ def train_dense_autoencoder(
 
     latent_np = get_latent_embeddings(trained_model, X)
     reconstruction_mse = reconstruction_error(trained_model, X)
-    if latent_np is None or reconstruction_mse is None:
+    reconstruction_errors = reconstruction_per_window(trained_model, X)
+    if latent_np is None or reconstruction_mse is None or reconstruction_errors is None:
         return None
 
     latent_scaled = StandardScaler().fit_transform(latent_np)
@@ -166,6 +186,7 @@ def train_dense_autoencoder(
     return DenseAEOutput(
         latent_embeddings=latent_np,
         reconstruction_mse=reconstruction_mse,
+        reconstruction_errors=reconstruction_errors,
         final_train_loss=final_train_loss,
         state_dict=trained_model.state_dict(),
         latent_pca_2d=latent_pca,

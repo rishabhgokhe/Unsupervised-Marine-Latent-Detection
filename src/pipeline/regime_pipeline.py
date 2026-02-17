@@ -15,6 +15,13 @@ from sklearn.preprocessing import StandardScaler
 from src.core.config import ProjectConfig
 from src.data.ingest import read_csv_dataset, resample_by_station
 from src.data.preprocess import quality_preprocess, replace_special_missing
+from src.evaluation.framework import (
+    changepoint_regime_alignment,
+    hmm_seed_stability,
+    pressure_drop_analysis,
+    summarize_state_sensitivity,
+    transition_entropy,
+)
 from src.evaluation.metrics import cluster_quality_scores
 from src.evaluation.temporal_diagnostics import duration_statistics, label_transition_matrix
 from src.features.window_engine import WindowedFeatures, generate_multiscale_window_features
@@ -137,8 +144,12 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
         "model_selection": cluster_output.diagnostics,
         "duration_stats": {},
         "transition_matrices": {},
+        "transition_entropy": {},
         "hmm_bic_by_states": {},
         "hierarchical": {},
+        "stability": {},
+        "changepoint_alignment": {},
+        "domain_validation": {},
     }
 
     for model_result in cluster_output.results:
@@ -147,7 +158,9 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
         quality_score = cluster_quality_scores(cluster_output.transformed, denoised)
         durations = duration_statistics(denoised)
         diagnostics["duration_stats"][model_result.name] = durations
-        diagnostics["transition_matrices"][model_result.name] = label_transition_matrix(denoised, int(model_result.n_states)).tolist()
+        trans_mat = label_transition_matrix(denoised, int(model_result.n_states))
+        diagnostics["transition_matrices"][model_result.name] = trans_mat.tolist()
+        diagnostics["transition_entropy"][model_result.name] = float(transition_entropy(trans_mat))
         metrics[model_result.name] = {
             **model_result.score_summary,
             "n_states": float(model_result.n_states),
@@ -169,6 +182,7 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
         hmm_durations = duration_statistics(hmm_labels)
         diagnostics["duration_stats"]["hmm"] = hmm_durations
         diagnostics["transition_matrices"]["hmm"] = hmm_result.transition_matrix.tolist()
+        diagnostics["transition_entropy"]["hmm"] = float(transition_entropy(hmm_result.transition_matrix))
         diagnostics["hmm_bic_by_states"] = {int(k): float(v) for k, v in hmm_result.bic_by_states.items()}
         metrics["hmm"] = {
             "n_states": float(hmm_result.n_states),
@@ -184,6 +198,21 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
     cp_result = detect_changepoints(cluster_output.transformed)
     if cp_result is not None:
         metrics["changepoint"] = {"n_breaks": float(cp_result.n_breaks)}
+        for name, lbl in labels.items():
+            diagnostics["changepoint_alignment"][name] = changepoint_regime_alignment(
+                regime_labels=lbl,
+                changepoints=cp_result.break_indices,
+                tolerance=cfg.evaluation.boundary_tolerance_steps,
+            )
+
+    baseline_stability = hmm_seed_stability(
+        cluster_output.transformed,
+        n_states=(hmm_result.n_states if hmm_result is not None else max(cfg.models.candidate_states)),
+        seeds=[0, cfg.models.random_state, 100],
+        covariance_type=cfg.models.hmm_covariance_type,
+    )
+    if baseline_stability is not None:
+        diagnostics["stability"]["hmm_raw_features"] = baseline_stability
 
     dense_autoencoder_state: Optional[Dict] = None
     dense_autoencoder_config: Optional[Dict] = None
@@ -220,9 +249,9 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
             dense_km_quality = cluster_quality_scores(dense_output.latent_embeddings, dense_km_labels)
             dense_km_durations = duration_statistics(dense_km_labels)
             diagnostics["duration_stats"]["dense_ae_kmeans"] = dense_km_durations
-            diagnostics["transition_matrices"]["dense_ae_kmeans"] = label_transition_matrix(
-                dense_km_labels, int(dense_km_k)
-            ).tolist()
+            dense_km_trans = label_transition_matrix(dense_km_labels, int(dense_km_k))
+            diagnostics["transition_matrices"]["dense_ae_kmeans"] = dense_km_trans.tolist()
+            diagnostics["transition_entropy"]["dense_ae_kmeans"] = float(transition_entropy(dense_km_trans))
             metrics["dense_ae_kmeans"] = {
                 "n_states": float(dense_km_k),
                 "silhouette_embed": float(dense_km_sil),
@@ -246,6 +275,7 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
                 dense_hmm_durations = duration_statistics(dense_hmm_labels)
                 diagnostics["duration_stats"]["dense_ae_hmm"] = dense_hmm_durations
                 diagnostics["transition_matrices"]["dense_ae_hmm"] = dense_hmm_result.transition_matrix.tolist()
+                diagnostics["transition_entropy"]["dense_ae_hmm"] = float(transition_entropy(dense_hmm_result.transition_matrix))
                 diagnostics["hmm_bic_by_states"]["dense_ae"] = {
                     int(k): float(v) for k, v in dense_hmm_result.bic_by_states.items()
                 }
@@ -273,6 +303,9 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
                     macro_durations = duration_statistics(hier_latent.macro_states)
                     diagnostics["duration_stats"]["dense_ae_hmm_macro"] = macro_durations
                     diagnostics["transition_matrices"]["dense_ae_hmm_macro"] = hier_latent.macro_transition_matrix.tolist()
+                    diagnostics["transition_entropy"]["dense_ae_hmm_macro"] = float(
+                        transition_entropy(hier_latent.macro_transition_matrix)
+                    )
                     diagnostics["hierarchical"]["dense_ae_hmm"] = {
                         "n_macro": int(hier_latent.n_macro),
                         "micro_to_macro": {int(k): int(v) for k, v in hier_latent.macro_mapping.items()},
@@ -289,8 +322,20 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
                         str(idx): {col: float(val) for col, val in row.items()}
                         for idx, row in macro_summary.iterrows()
                     }
+                    diagnostics["domain_validation"]["dense_ae_hmm_macro"] = {
+                        "pressure_drop": pressure_drop_analysis(windowed.X, hier_latent.macro_states)
+                    }
                 else:
                     logger.warning("Failed to build hierarchical latent states from dense AE HMM output")
+
+                dense_stability = hmm_seed_stability(
+                    dense_output.latent_embeddings,
+                    n_states=dense_hmm_result.n_states,
+                    seeds=[0, cfg.models.random_state, 100],
+                    covariance_type=cfg.models.hmm_covariance_type,
+                )
+                if dense_stability is not None:
+                    diagnostics["stability"]["hmm_dense_latent"] = dense_stability
 
             dense_latent_projection = pd.DataFrame(
                 {
@@ -299,6 +344,12 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
                 }
             )
             dense_latent_projection = pd.concat([windowed.meta.reset_index(drop=True), dense_latent_projection], axis=1)
+            diagnostics["reconstruction_error"] = {
+                "mean": float(np.mean(dense_output.reconstruction_errors)),
+                "median": float(np.median(dense_output.reconstruction_errors)),
+                "p95": float(np.percentile(dense_output.reconstruction_errors, 95)),
+                "per_window": dense_output.reconstruction_errors.astype(float).tolist(),
+            }
         else:
             logger.warning("Dense autoencoder unavailable or failed; skipping dense autoencoder branch")
 
@@ -318,6 +369,9 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
             deep_labels = smooth_labels(deep_result.labels, cfg.models.min_segment_length)
             labels["deep_lstm_ae"] = deep_labels
             deep_quality = cluster_quality_scores(cluster_output.transformed, deep_labels)
+            deep_trans = label_transition_matrix(deep_labels, int(deep_result.n_states))
+            diagnostics["transition_matrices"]["deep_lstm_ae"] = deep_trans.tolist()
+            diagnostics["transition_entropy"]["deep_lstm_ae"] = float(transition_entropy(deep_trans))
             metrics["deep_lstm_ae"] = {
                 "n_states": float(deep_result.n_states),
                 "train_loss": float(deep_result.train_loss),
@@ -344,6 +398,9 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
             vae_labels = smooth_labels(vae_result.labels, cfg.models.min_segment_length)
             labels["vae_ablation"] = vae_labels
             vae_quality = cluster_quality_scores(cluster_output.transformed, vae_labels)
+            vae_trans = label_transition_matrix(vae_labels, int(vae_result.n_states))
+            diagnostics["transition_matrices"]["vae_ablation"] = vae_trans.tolist()
+            diagnostics["transition_entropy"]["vae_ablation"] = float(transition_entropy(vae_trans))
             metrics["vae_ablation"] = {
                 "n_states": float(vae_result.n_states),
                 "recon_loss": float(vae_result.recon_loss),
@@ -379,6 +436,23 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
         p = pca.fit_transform(cluster_output.transformed)
         pca_df = pd.DataFrame({"pc1": p[:, 0], "pc2": p[:, 1]})
         pca_df = pd.concat([windowed.meta.reset_index(drop=True), pca_df], axis=1)
+
+    if cp_result is not None:
+        for name, lbl in labels.items():
+            diagnostics["changepoint_alignment"][name] = changepoint_regime_alignment(
+                regime_labels=lbl,
+                changepoints=cp_result.break_indices,
+                tolerance=cfg.evaluation.boundary_tolerance_steps,
+            )
+
+    model_selection_diag = diagnostics.get("model_selection", {})
+    hmm_bic_any = diagnostics.get("hmm_bic_by_states", {})
+    hmm_bic_flat = {int(k): float(v) for k, v in hmm_bic_any.items() if np.isscalar(v)} if isinstance(hmm_bic_any, dict) else {}
+    diagnostics["sensitivity"] = summarize_state_sensitivity(
+        kmeans_silhouette_by_k={int(k): float(v) for k, v in model_selection_diag.get("kmeans_silhouette_by_k", {}).items()},
+        gmm_bic_by_k={int(k): float(v) for k, v in model_selection_diag.get("gmm_bic_by_k", {}).items()},
+        hmm_bic_by_k=(hmm_bic_flat or None),
+    )
 
     return PipelineResult(
         processed_data=processed,

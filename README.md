@@ -93,6 +93,7 @@ Generated artifacts:
 - `window_regimes.csv`
 - `model_metrics.json`
 - `quality_report.json`
+- `model_diagnostics.json` (includes transition entropy, stability ARI, change-point alignment, sensitivity summary)
 - `changepoints.json` (if enabled dependency available)
 - `dense_autoencoder_config.json` and `autoencoder_dense.pt` (if dense AE enabled)
 - `dense_latent_projection.csv` (if dense AE enabled)
