@@ -96,8 +96,10 @@ Generated artifacts:
 - `model_diagnostics.json` (includes transition entropy, stability ARI, change-point alignment, sensitivity summary)
 - `changepoints.json` (if enabled dependency available)
 - `dense_autoencoder_config.json` and `autoencoder_dense.pt` (if dense AE enabled)
+- `hmm.pkl` (best available HMM for inference deployment)
 - `dense_latent_projection.csv` (if dense AE enabled)
 - `macro_mapping.pkl` and `macro_regime_characterization.json` (if hierarchical latent mapping is available)
+- `inference_config.json` and `config.yaml` (for inference preprocessing parity)
 
 ## Run Streamlit
 
@@ -106,10 +108,10 @@ PYTHONPATH=. streamlit run app.py
 ```
 
 Dashboard supports:
-- config-path based runs
-- CSV upload override
-- deep model toggle (sidebar)
-- metrics table, regime timeline, downloadable outputs
+- inference-only mode (no retraining)
+- artifact-driven model loading (`feature_scaler.pkl`, `autoencoder_dense.pt`, `hmm.pkl`, `macro_mapping.pkl`)
+- CSV upload and regime prediction (micro + macro)
+- timeline, distribution, transition heatmap, and downloadable labeled output
 
 ## MLflow Tracking
 

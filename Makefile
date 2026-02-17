@@ -13,7 +13,7 @@ test:
 	PYTHONPATH=. pytest -q
 
 check:
-	PYTHONPATH=. $(PYTHON) -m compileall src app.py
+	PYTHONPATH=. $(PYTHON) -m compileall src app app.py
 	PYTHONPATH=. pytest -q
 
 run:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
@@ -15,6 +15,7 @@ class HMMResult:
     transition_matrix: np.ndarray
     state_means: np.ndarray
     bic_by_states: Dict[int, float]
+    model: Any
 
 
 def _bic_approx(log_likelihood: float, n_states: int, n_features: int, n_samples: int) -> float:
@@ -71,4 +72,5 @@ def run_hmm(
         transition_matrix=trans,
         state_means=np.asarray(best_model.means_, dtype=float),
         bic_by_states=bic_by_states,
+        model=best_model,
     )

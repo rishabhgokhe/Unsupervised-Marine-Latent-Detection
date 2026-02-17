@@ -4,7 +4,7 @@ import json
 import logging
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 import joblib
 import numpy as np
@@ -59,6 +59,8 @@ class PipelineResult:
     dense_latent_projection: Optional[pd.DataFrame] = None
     hierarchical_mapping: Optional[Dict[str, Dict[int, int]]] = None
     macro_regime_characterization: Optional[Dict[str, Dict[str, Dict[str, float]]]] = None
+    trained_models: Optional[Dict[str, Any]] = None
+    deployment_config: Optional[Dict] = None
 
 
 def _ensure_features(cfg: ProjectConfig, df: pd.DataFrame) -> list[str]:
@@ -151,6 +153,7 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
         "changepoint_alignment": {},
         "domain_validation": {},
     }
+    trained_models: Dict[str, Any] = {}
 
     for model_result in cluster_output.results:
         denoised = smooth_labels(model_result.labels, cfg.models.min_segment_length)
@@ -192,6 +195,7 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
             "davies_bouldin": float(hmm_quality.davies_bouldin),
             "mean_regime_duration": float(hmm_durations["mean_duration"]),
         }
+        trained_models["hmm"] = hmm_result.model
     else:
         logger.warning("hmmlearn not installed or HMM fit failed; skipping HMM")
 
@@ -289,6 +293,7 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
                     "reconstruction_mse": float(dense_output.reconstruction_mse),
                     "final_train_loss": float(dense_output.final_train_loss),
                 }
+                trained_models["hmm"] = dense_hmm_result.model
 
                 hier_latent = build_hierarchical_latent_states(
                     micro_states=dense_hmm_labels,
@@ -454,6 +459,23 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
         hmm_bic_by_k=(hmm_bic_flat or None),
     )
 
+    deployment_config = {
+        "timestamp_col": cfg.data.timestamp_col,
+        "station_col": cfg.data.station_col,
+        "numeric_columns": list(features),
+        "directional_columns": [c for c in cfg.data.directional_columns if c in processed.columns],
+        "model_feature_cols": model_feature_cols,
+        "windowing": {
+            "use_multiscale": bool(cfg.features.use_multiscale),
+            "window_size": int(cfg.features.window_size),
+            "step_size": int(cfg.features.step_size),
+            "rolling_features": list(cfg.features.rolling_features),
+            "multi_window_sizes": list(cfg.features.multi_window_sizes),
+            "multi_stride": int(cfg.features.multi_stride),
+        },
+        "dense_autoencoder": dense_autoencoder_config,
+    }
+
     return PipelineResult(
         processed_data=processed,
         windowed=windowed,
@@ -480,6 +502,8 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
         dense_latent_projection=dense_latent_projection,
         hierarchical_mapping=hierarchical_mapping or None,
         macro_regime_characterization=macro_regime_characterization or None,
+        trained_models=trained_models or None,
+        deployment_config=deployment_config,
     )
 
 
@@ -534,5 +558,12 @@ def save_artifacts(result: PipelineResult, output_dir: str | Path) -> None:
     if result.macro_regime_characterization is not None:
         with (out / "macro_regime_characterization.json").open("w", encoding="utf-8") as fp:
             json.dump(result.macro_regime_characterization, fp, indent=2)
+
+    if result.deployment_config is not None:
+        with (out / "inference_config.json").open("w", encoding="utf-8") as fp:
+            json.dump(result.deployment_config, fp, indent=2)
+
+    if result.trained_models is not None and "hmm" in result.trained_models:
+        joblib.dump(result.trained_models["hmm"], out / "hmm.pkl")
 
     joblib.dump(result.model_labels, out / "labels.joblib")

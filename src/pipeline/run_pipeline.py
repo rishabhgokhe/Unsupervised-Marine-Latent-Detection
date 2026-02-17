@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import logging
+import shutil
+from pathlib import Path
 
 from src.core.config import load_config
 from src.core.logging_utils import configure_logging
@@ -49,6 +51,8 @@ def main() -> None:
 
         result = run_pipeline(cfg)
         save_artifacts(result, args.output)
+        Path(args.output).mkdir(parents=True, exist_ok=True)
+        shutil.copy2(args.config, Path(args.output) / "config.yaml")
 
         for model_name, model_metrics in result.model_metrics.items():
             flat = {f"{model_name}.{k}": float(v) for k, v in model_metrics.items()}
