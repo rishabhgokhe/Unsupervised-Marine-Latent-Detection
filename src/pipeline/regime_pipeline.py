@@ -22,7 +22,11 @@ from src.features.windows import build_sliding_windows
 from src.models.changepoint import ChangePointResult, detect_changepoints
 from src.models.clustering import ClusterRunOutput, run_clustering_baselines
 from src.models.deep_autoencoder import run_lstm_autoencoder_segmentation
-from src.models.hierarchy import build_hierarchical_regimes
+from src.models.hierarchy import (
+    build_hierarchical_latent_states,
+    build_hierarchical_regimes,
+    characterize_regimes,
+)
 from src.models.hmm_model import HMMResult, run_hmm
 from src.models.kmeans_model import best_kmeans_by_silhouette
 from src.models.label_utils import smooth_labels
@@ -46,6 +50,8 @@ class PipelineResult:
     dense_autoencoder_state: Optional[Dict] = None
     dense_autoencoder_config: Optional[Dict] = None
     dense_latent_projection: Optional[pd.DataFrame] = None
+    hierarchical_mapping: Optional[Dict[str, Dict[int, int]]] = None
+    macro_regime_characterization: Optional[Dict[str, Dict[str, Dict[str, float]]]] = None
 
 
 def _ensure_features(cfg: ProjectConfig, df: pd.DataFrame) -> list[str]:
@@ -132,6 +138,7 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
         "duration_stats": {},
         "transition_matrices": {},
         "hmm_bic_by_states": {},
+        "hierarchical": {},
     }
 
     for model_result in cluster_output.results:
@@ -181,6 +188,8 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
     dense_autoencoder_state: Optional[Dict] = None
     dense_autoencoder_config: Optional[Dict] = None
     dense_latent_projection: Optional[pd.DataFrame] = None
+    hierarchical_mapping: Dict[str, Dict[int, int]] = {}
+    macro_regime_characterization: Dict[str, Dict[str, float]] = {}
     if cfg.deep.enable_dense_ae:
         dense_output = train_dense_autoencoder(
             cluster_output.transformed,
@@ -250,6 +259,38 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
                     "reconstruction_mse": float(dense_output.reconstruction_mse),
                     "final_train_loss": float(dense_output.final_train_loss),
                 }
+
+                hier_latent = build_hierarchical_latent_states(
+                    micro_states=dense_hmm_labels,
+                    state_means=dense_hmm_result.state_means,
+                    n_macro=cfg.models.n_super_regimes,
+                    random_state=cfg.models.random_state,
+                )
+                if hier_latent is not None:
+                    labels["dense_ae_hmm_macro"] = hier_latent.macro_states
+                    hierarchical_mapping["dense_ae_hmm"] = hier_latent.macro_mapping
+                    macro_quality = cluster_quality_scores(dense_output.latent_embeddings, hier_latent.macro_states)
+                    macro_durations = duration_statistics(hier_latent.macro_states)
+                    diagnostics["duration_stats"]["dense_ae_hmm_macro"] = macro_durations
+                    diagnostics["transition_matrices"]["dense_ae_hmm_macro"] = hier_latent.macro_transition_matrix.tolist()
+                    diagnostics["hierarchical"]["dense_ae_hmm"] = {
+                        "n_macro": int(hier_latent.n_macro),
+                        "micro_to_macro": {int(k): int(v) for k, v in hier_latent.macro_mapping.items()},
+                    }
+                    metrics["dense_ae_hmm_macro"] = {
+                        "n_states": float(hier_latent.n_macro),
+                        "silhouette_post": float(macro_quality.silhouette),
+                        "davies_bouldin": float(macro_quality.davies_bouldin),
+                        "mean_regime_duration": float(macro_durations["mean_duration"]),
+                    }
+
+                    macro_summary = characterize_regimes(windowed.X, hier_latent.macro_states)
+                    macro_regime_characterization["dense_ae_hmm_macro"] = {
+                        str(idx): {col: float(val) for col, val in row.items()}
+                        for idx, row in macro_summary.iterrows()
+                    }
+                else:
+                    logger.warning("Failed to build hierarchical latent states from dense AE HMM output")
 
             dense_latent_projection = pd.DataFrame(
                 {
@@ -363,6 +404,8 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
         dense_autoencoder_state=dense_autoencoder_state,
         dense_autoencoder_config=dense_autoencoder_config,
         dense_latent_projection=dense_latent_projection,
+        hierarchical_mapping=hierarchical_mapping or None,
+        macro_regime_characterization=macro_regime_characterization or None,
     )
 
 
@@ -410,5 +453,12 @@ def save_artifacts(result: PipelineResult, output_dir: str | Path) -> None:
             torch.save(result.dense_autoencoder_state, out / "autoencoder_dense.pt")
         except Exception:
             joblib.dump(result.dense_autoencoder_state, out / "autoencoder_dense_state.joblib")
+
+    if result.hierarchical_mapping is not None:
+        joblib.dump(result.hierarchical_mapping, out / "macro_mapping.pkl")
+
+    if result.macro_regime_characterization is not None:
+        with (out / "macro_regime_characterization.json").open("w", encoding="utf-8") as fp:
+            json.dump(result.macro_regime_characterization, fp, indent=2)
 
     joblib.dump(result.model_labels, out / "labels.joblib")

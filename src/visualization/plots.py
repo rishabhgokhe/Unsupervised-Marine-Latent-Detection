@@ -55,3 +55,34 @@ def window_sensor_regime_chart(window_df: pd.DataFrame, sensor_mean_col: str, ti
     fig.update_traces(mode="markers+lines")
     fig.update_layout(xaxis_title="Time", yaxis_title=sensor_mean_col)
     return fig
+
+
+def hierarchical_regime_timeline(
+    meta: pd.DataFrame,
+    macro_labels: pd.Series,
+    micro_labels: pd.Series,
+    title: str = "Hierarchical Regime Timeline",
+):
+    plot_df = meta.copy().reset_index(drop=True)
+    plot_df["macro"] = macro_labels.astype(str).values
+    plot_df["micro"] = micro_labels.astype(str).values
+
+    macro_df = plot_df.copy()
+    macro_df["level"] = "Macro"
+    macro_df["state"] = macro_df["macro"]
+    micro_df = plot_df.copy()
+    micro_df["level"] = "Micro"
+    micro_df["state"] = micro_df["micro"]
+
+    stacked = pd.concat([macro_df, micro_df], axis=0, ignore_index=True)
+    fig = px.timeline(
+        stacked,
+        x_start="start_time",
+        x_end="end_time",
+        y="level",
+        color="state",
+        title=title,
+        hover_data=["station", "start_idx", "end_idx"],
+    )
+    fig.update_yaxes(categoryorder="array", categoryarray=["Macro", "Micro"], autorange="reversed")
+    return fig

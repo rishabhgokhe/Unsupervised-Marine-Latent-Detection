@@ -94,6 +94,9 @@ Generated artifacts:
 - `model_metrics.json`
 - `quality_report.json`
 - `changepoints.json` (if enabled dependency available)
+- `dense_autoencoder_config.json` and `autoencoder_dense.pt` (if dense AE enabled)
+- `dense_latent_projection.csv` (if dense AE enabled)
+- `macro_mapping.pkl` and `macro_regime_characterization.json` (if hierarchical latent mapping is available)
 
 ## Run Streamlit
 

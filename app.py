@@ -15,6 +15,7 @@ from src.evaluation.regime_summary import (
 )
 from src.pipeline.regime_pipeline import run_pipeline, save_artifacts
 from src.visualization.plots import (
+    hierarchical_regime_timeline,
     regime_distribution,
     regime_timeline,
     sensor_series_with_segments,
@@ -63,12 +64,16 @@ def main() -> None:
     st.sidebar.subheader("Model Controls")
     cfg.deep.enabled = st.sidebar.checkbox("Enable Deep LSTM Autoencoder", value=cfg.deep.enabled)
     cfg.deep.enable_vae = st.sidebar.checkbox("Enable VAE Ablation", value=cfg.deep.enable_vae)
+    cfg.deep.enable_dense_ae = st.sidebar.checkbox("Enable Dense Autoencoder + Hierarchy", value=cfg.deep.enable_dense_ae)
     if cfg.deep.enabled:
         cfg.deep.epochs = st.sidebar.slider("Deep Epochs", min_value=5, max_value=100, value=cfg.deep.epochs, step=5)
         cfg.deep.seq_len = st.sidebar.slider("Deep Sequence Length", min_value=2, max_value=24, value=cfg.deep.seq_len, step=1)
     if cfg.deep.enable_vae:
         cfg.deep.vae_latent_dim = st.sidebar.slider("VAE Latent Dim", min_value=2, max_value=64, value=cfg.deep.vae_latent_dim, step=2)
         cfg.deep.vae_beta = st.sidebar.slider("VAE Beta", min_value=0.1, max_value=5.0, value=float(cfg.deep.vae_beta), step=0.1)
+    if cfg.deep.enable_dense_ae:
+        cfg.deep.dense_latent_dim = st.sidebar.slider("Dense AE Latent Dim", min_value=4, max_value=128, value=cfg.deep.dense_latent_dim, step=4)
+        cfg.deep.dense_epochs = st.sidebar.slider("Dense AE Epochs", min_value=5, max_value=200, value=cfg.deep.dense_epochs, step=5)
 
     st.title(cfg.app.app_title)
     st.caption("Unsupervised hidden-regime discovery for multivariate marine time-series")
@@ -124,12 +129,26 @@ def main() -> None:
             ),
             use_container_width=True,
         )
+        if "dense_ae_hmm_macro" in result.model_labels and "dense_ae_hmm" in result.model_labels:
+            st.plotly_chart(
+                hierarchical_regime_timeline(
+                    result.windowed.meta[["station", "start_time", "end_time", "start_idx", "end_idx"]],
+                    pd.Series(result.model_labels["dense_ae_hmm_macro"]),
+                    pd.Series(result.model_labels["dense_ae_hmm"]),
+                    title="Layered Macro vs Micro Timeline (Dense AE + HMM)",
+                ),
+                use_container_width=True,
+            )
 
     with tab2:
         key_features = _pick_multiscale_mean_cols(window_df)
         summary_df = regime_summary_table(window_df, key_features)
         st.dataframe(summary_df, use_container_width=True)
         st.plotly_chart(regime_distribution(window_df, "Regime Distribution by Window Count"), use_container_width=True)
+        if result.macro_regime_characterization and selected_model in result.macro_regime_characterization:
+            st.subheader("Macro Regime Physical Characterization")
+            macro_df = pd.DataFrame(result.macro_regime_characterization[selected_model]).T
+            st.dataframe(macro_df, use_container_width=True)
         if result.pca_projection is not None:
             st.subheader("PCA Sanity Projection (Window Feature Space)")
             pca_view = result.pca_projection.copy()

@@ -13,6 +13,7 @@ class HMMResult:
     log_likelihood: float
     bic: float
     transition_matrix: np.ndarray
+    state_means: np.ndarray
     bic_by_states: Dict[int, float]
 
 
@@ -68,5 +69,6 @@ def run_hmm(
         log_likelihood=float(best_logl),
         bic=float(best_bic),
         transition_matrix=trans,
+        state_means=np.asarray(best_model.means_, dtype=float),
         bic_by_states=bic_by_states,
     )
