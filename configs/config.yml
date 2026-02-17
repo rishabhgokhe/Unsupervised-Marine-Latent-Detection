@@ -29,12 +29,17 @@ preprocess:
 features:
   window_size: 12
   step_size: 6
+  use_multiscale: true
+  multi_window_sizes: [6, 24, 72]
+  multi_stride: 3
+  save_pca_sanity: true
   rolling_features:
     - mean
     - std
-    - min
-    - max
+    - trend
     - energy
+    - max
+    - min
 
 models:
   candidate_states: [2, 3, 4, 5, 6]

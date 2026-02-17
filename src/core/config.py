@@ -31,6 +31,10 @@ class FeatureConfig:
     window_size: int = 12
     step_size: int = 6
     rolling_features: List[str] = field(default_factory=lambda: ["mean", "std", "min", "max"])
+    use_multiscale: bool = True
+    multi_window_sizes: List[int] = field(default_factory=lambda: [6, 24, 72])
+    multi_stride: int = 3
+    save_pca_sanity: bool = True
 
 
 @dataclass
@@ -129,6 +133,10 @@ def load_config(path: str | Path) -> ProjectConfig:
             window_size=int(_get(feature_raw, "window_size", 12)),
             step_size=int(_get(feature_raw, "step_size", 6)),
             rolling_features=list(_get(feature_raw, "rolling_features", ["mean", "std", "min", "max"])),
+            use_multiscale=bool(_get(feature_raw, "use_multiscale", True)),
+            multi_window_sizes=list(_get(feature_raw, "multi_window_sizes", [6, 24, 72])),
+            multi_stride=int(_get(feature_raw, "multi_stride", 3)),
+            save_pca_sanity=bool(_get(feature_raw, "save_pca_sanity", True)),
         ),
         models=ModelConfig(
             candidate_states=list(_get(model_raw, "candidate_states", [2, 3, 4, 5])),

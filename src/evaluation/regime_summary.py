@@ -10,7 +10,11 @@ def infer_semantic_regime_names(window_df: pd.DataFrame) -> Dict[int, str]:
     if window_df.empty:
         return {}
 
-    score_cols = [c for c in ["WAVE_HGT_mean", "WIND_SPEED_mean", "SEA_LVL_PRES_mean"] if c in window_df.columns]
+    def _first_matching(prefix: str) -> str | None:
+        matches = [c for c in window_df.columns if c.startswith(f"{prefix}_") and c.endswith("_mean")]
+        return sorted(matches)[0] if matches else None
+
+    score_cols = [x for x in [_first_matching("WAVE_HGT"), _first_matching("WIND_SPEED"), _first_matching("SEA_LVL_PRES")] if x]
     if not score_cols:
         score_cols = [c for c in window_df.columns if c.endswith("_mean")][:5]
 

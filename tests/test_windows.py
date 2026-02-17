@@ -25,5 +25,5 @@ def test_build_sliding_windows_basic():
 
     assert len(out.X) == 2
     assert len(out.meta) == 2
-    assert "WIND_SPEED_mean" in out.X.columns
-    assert "SEA_LVL_PRES_max" in out.X.columns
+    assert "WIND_SPEED_s3_mean" in out.X.columns
+    assert "SEA_LVL_PRES_s3_max" in out.X.columns

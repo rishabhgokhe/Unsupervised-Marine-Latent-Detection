@@ -6,6 +6,8 @@ from typing import List
 import numpy as np
 import pandas as pd
 
+from src.features.window_engine import WindowedFeatures as EngineWindowedFeatures
+from src.features.window_engine import generate_multiscale_window_features
 
 @dataclass
 class WindowedFeatures:
@@ -45,32 +47,26 @@ def build_sliding_windows(
     step_size: int,
     stats: List[str],
 ) -> WindowedFeatures:
-    records = []
-    meta_records = []
+    # Backward-compatible single-scale API that reuses the multi-scale engine.
+    # This keeps notebooks/tests stable while the pipeline uses dedicated multi-scale calls.
+    out: EngineWindowedFeatures = generate_multiscale_window_features(
+        df=df,
+        station_col=station_col,
+        timestamp_col=timestamp_col,
+        feature_columns=feature_columns,
+        window_sizes=[window_size],
+        stride=step_size,
+    )
 
-    for station, grp in df.groupby(station_col, sort=False):
-        g = grp.sort_values(timestamp_col).reset_index(drop=True)
-        if len(g) < window_size:
-            continue
+    # If caller requested a custom stat subset, filter columns accordingly.
+    if stats:
+        keep = []
+        for c in out.X.columns:
+            for st in stats:
+                if c.endswith(f"_{st}"):
+                    keep.append(c)
+                    break
+        if keep:
+            out = EngineWindowedFeatures(X=out.X[keep].copy(), meta=out.meta)
 
-        for start in range(0, len(g) - window_size + 1, step_size):
-            end = start + window_size
-            w = g.iloc[start:end]
-            rec = _extract_stats(w, feature_columns, stats)
-            records.append(rec)
-            meta_records.append(
-                {
-                    "station": station,
-                    "start_idx": start,
-                    "end_idx": end - 1,
-                    "start_time": w[timestamp_col].iloc[0],
-                    "end_time": w[timestamp_col].iloc[-1],
-                }
-            )
-
-    if not records:
-        raise ValueError("No windows could be generated; check window_size/step_size and data length")
-
-    X = pd.DataFrame.from_records(records)
-    meta = pd.DataFrame.from_records(meta_records)
-    return WindowedFeatures(X=X, meta=meta)
+    return WindowedFeatures(X=out.X, meta=out.meta)

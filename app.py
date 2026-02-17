@@ -44,6 +44,15 @@ def _get_window_regime_df(result, selected_model: str) -> pd.DataFrame:
     return window_df
 
 
+def _pick_multiscale_mean_cols(df: pd.DataFrame) -> list[str]:
+    preferred_prefix = ["WIND_SPEED", "WAVE_HGT", "SEA_LVL_PRES", "AIR_TEMP"]
+    cols = []
+    for p in preferred_prefix:
+        matches = [c for c in df.columns if c.startswith(f"{p}_") and c.endswith("_mean")]
+        cols.extend(sorted(matches)[:2])
+    return cols
+
+
 def main() -> None:
     st.set_page_config(page_title="Marine Regime Discovery", layout="wide")
 
@@ -117,10 +126,15 @@ def main() -> None:
         )
 
     with tab2:
-        key_features = [c for c in ["WIND_SPEED_mean", "WAVE_HGT_mean", "SEA_LVL_PRES_mean", "AIR_TEMP_mean"] if c in window_df.columns]
+        key_features = _pick_multiscale_mean_cols(window_df)
         summary_df = regime_summary_table(window_df, key_features)
         st.dataframe(summary_df, use_container_width=True)
         st.plotly_chart(regime_distribution(window_df, "Regime Distribution by Window Count"), use_container_width=True)
+        if result.pca_projection is not None:
+            st.subheader("PCA Sanity Projection (Window Feature Space)")
+            pca_view = result.pca_projection.copy()
+            pca_view["regime_name"] = window_df["regime_name"].values
+            st.scatter_chart(data=pca_view, x="pc1", y="pc2", color="regime_name")
 
     with tab3:
         sensor_cols = [c for c in window_df.columns if c.endswith("_mean")]

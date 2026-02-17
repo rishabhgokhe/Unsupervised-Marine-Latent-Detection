@@ -9,12 +9,15 @@ from typing import Dict, Optional
 import joblib
 import numpy as np
 import pandas as pd
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 
 from src.core.config import ProjectConfig
 from src.data.ingest import read_csv_dataset, resample_by_station
 from src.data.preprocess import quality_preprocess, replace_special_missing
 from src.evaluation.metrics import cluster_quality_scores
-from src.features.windows import WindowedFeatures, build_sliding_windows
+from src.features.window_engine import WindowedFeatures, generate_multiscale_window_features
+from src.features.windows import build_sliding_windows
 from src.models.changepoint import ChangePointResult, detect_changepoints
 from src.models.clustering import ClusterRunOutput, run_clustering_baselines
 from src.models.deep_autoencoder import run_lstm_autoencoder_segmentation
@@ -33,6 +36,8 @@ class PipelineResult:
     model_metrics: Dict[str, Dict[str, float]]
     quality_report: Dict
     changepoints: Optional[ChangePointResult]
+    feature_scaler: Optional[StandardScaler] = None
+    pca_projection: Optional[pd.DataFrame] = None
 
 
 def _ensure_features(cfg: ProjectConfig, df: pd.DataFrame) -> list[str]:
@@ -108,15 +113,25 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
     directional_encoded = [f"{c}_SIN" for c in cfg.data.directional_columns] + [f"{c}_COS" for c in cfg.data.directional_columns]
     model_feature_cols = list(dict.fromkeys([*features, *[c for c in directional_encoded if c in processed.columns]]))
 
-    windowed = build_sliding_windows(
-        processed,
-        station_col=cfg.data.station_col,
-        timestamp_col=cfg.data.timestamp_col,
-        feature_columns=model_feature_cols,
-        window_size=cfg.features.window_size,
-        step_size=cfg.features.step_size,
-        stats=cfg.features.rolling_features,
-    )
+    if cfg.features.use_multiscale:
+        windowed = generate_multiscale_window_features(
+            processed,
+            station_col=cfg.data.station_col,
+            timestamp_col=cfg.data.timestamp_col,
+            feature_columns=model_feature_cols,
+            window_sizes=cfg.features.multi_window_sizes,
+            stride=cfg.features.multi_stride,
+        )
+    else:
+        windowed = build_sliding_windows(
+            processed,
+            station_col=cfg.data.station_col,
+            timestamp_col=cfg.data.timestamp_col,
+            feature_columns=model_feature_cols,
+            window_size=cfg.features.window_size,
+            step_size=cfg.features.step_size,
+            stats=cfg.features.rolling_features,
+        )
 
     cluster_output: ClusterRunOutput = run_clustering_baselines(
         windowed.X,
@@ -232,6 +247,13 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
                 "n_super_regimes": float(hierarchy.n_super_regimes),
             }
 
+    pca_df: Optional[pd.DataFrame] = None
+    if cfg.features.save_pca_sanity and len(cluster_output.transformed) >= 3:
+        pca = PCA(n_components=2, random_state=cfg.models.random_state)
+        p = pca.fit_transform(cluster_output.transformed)
+        pca_df = pd.DataFrame({"pc1": p[:, 0], "pc2": p[:, 1]})
+        pca_df = pd.concat([windowed.meta.reset_index(drop=True), pca_df], axis=1)
+
     return PipelineResult(
         processed_data=processed,
         windowed=windowed,
@@ -244,9 +266,13 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
             "selected_numeric_features": features,
             "selected_directional_features": [c for c in cfg.data.directional_columns if c in processed.columns],
             "final_model_feature_count": len(model_feature_cols),
+            "window_feature_dimension": int(windowed.X.shape[1]),
+            "window_count": int(windowed.X.shape[0]),
             "final_has_nan": bool(processed[features].isna().any().any()),
         },
         changepoints=cp_result,
+        feature_scaler=cluster_output.scaler,
+        pca_projection=pca_df,
     )
 
 
@@ -256,6 +282,7 @@ def save_artifacts(result: PipelineResult, output_dir: str | Path) -> None:
 
     result.processed_data.to_csv(out / "processed_data.csv", index=False)
     result.windowed.X.to_csv(out / "window_features.csv", index=False)
+    joblib.dump(result.feature_scaler, out / "feature_scaler.pkl")
 
     label_df = result.windowed.meta.copy()
     for model_name, model_labels in result.model_labels.items():
@@ -271,5 +298,8 @@ def save_artifacts(result: PipelineResult, output_dir: str | Path) -> None:
     if result.changepoints is not None:
         with (out / "changepoints.json").open("w", encoding="utf-8") as fp:
             json.dump(asdict(result.changepoints), fp, indent=2)
+
+    if result.pca_projection is not None:
+        result.pca_projection.to_csv(out / "pca_projection.csv", index=False)
 
     joblib.dump(result.model_labels, out / "labels.joblib")

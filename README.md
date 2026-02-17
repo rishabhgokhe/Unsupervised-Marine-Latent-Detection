@@ -88,6 +88,8 @@ PYTHONPATH=. python3 -m src.pipeline.run_pipeline --config configs/config.yml --
 Generated artifacts:
 - `processed_data.csv`
 - `window_features.csv`
+- `feature_scaler.pkl`
+- `pca_projection.csv` (if enabled)
 - `window_regimes.csv`
 - `model_metrics.json`
 - `quality_report.json`
