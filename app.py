@@ -111,8 +111,8 @@ def main() -> None:
     c2.metric("Detected Regimes", int(window_df["regime_id"].nunique()))
     c3.metric("Model", selected_model)
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(
-        ["Regime Timeline", "Regime Stats", "Sensor Charts", "Quality", "Downloads"]
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+        ["Regime Timeline", "Regime Stats", "Sensor Charts", "Temporal Diagnostics", "Quality", "Downloads"]
     )
 
     with tab1:
@@ -166,13 +166,33 @@ def main() -> None:
             )
 
     with tab4:
+        st.subheader("Model Selection Curves")
+        diags = result.diagnostics or {}
+        selection = diags.get("model_selection", {})
+        if selection:
+            for k, v in selection.items():
+                if v:
+                    df = pd.DataFrame({"k": list(v.keys()), "score": list(v.values())}).sort_values("k")
+                    st.line_chart(df.set_index("k"))
+
+        st.subheader("Duration Statistics")
+        dur = (diags.get("duration_stats", {}) if diags else {})
+        if dur:
+            st.dataframe(pd.DataFrame(dur).T, use_container_width=True)
+
+        st.subheader("Transition Matrix")
+        trans = (diags.get("transition_matrices", {}) if diags else {})
+        if trans and selected_model in trans:
+            st.dataframe(pd.DataFrame(trans[selected_model]), use_container_width=True)
+
+    with tab5:
         st.subheader("Quality Report")
         st.json(result.quality_report)
         if result.changepoints is not None:
             st.subheader("Detected Change Points")
             st.write(result.changepoints.break_indices)
 
-    with tab5:
+    with tab6:
         out_dir = Path("outputs") / "streamlit_latest"
         save_artifacts(result, out_dir)
         st.caption(f"Artifacts saved at `{out_dir}`")

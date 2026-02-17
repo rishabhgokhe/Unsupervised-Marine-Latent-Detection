@@ -16,6 +16,7 @@ from src.core.config import ProjectConfig
 from src.data.ingest import read_csv_dataset, resample_by_station
 from src.data.preprocess import quality_preprocess, replace_special_missing
 from src.evaluation.metrics import cluster_quality_scores
+from src.evaluation.temporal_diagnostics import duration_statistics, label_transition_matrix
 from src.features.window_engine import WindowedFeatures, generate_multiscale_window_features
 from src.features.windows import build_sliding_windows
 from src.models.changepoint import ChangePointResult, detect_changepoints
@@ -23,6 +24,7 @@ from src.models.clustering import ClusterRunOutput, run_clustering_baselines
 from src.models.deep_autoencoder import run_lstm_autoencoder_segmentation
 from src.models.hierarchy import build_hierarchical_regimes
 from src.models.hmm_model import HMMResult, run_hmm
+from src.models.label_utils import smooth_labels
 from src.models.vae_model import run_vae_ablation
 
 logger = logging.getLogger(__name__)
@@ -38,6 +40,7 @@ class PipelineResult:
     changepoints: Optional[ChangePointResult]
     feature_scaler: Optional[StandardScaler] = None
     pca_projection: Optional[pd.DataFrame] = None
+    diagnostics: Optional[Dict] = None
 
 
 def _ensure_features(cfg: ProjectConfig, df: pd.DataFrame) -> list[str]:
@@ -49,28 +52,6 @@ def _ensure_features(cfg: ProjectConfig, df: pd.DataFrame) -> list[str]:
     auto_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
     auto_cols = [c for c in auto_cols if c not in [cfg.data.station_col]]
     return auto_cols
-
-
-def _postprocess_short_segments(labels: np.ndarray, min_len: int) -> np.ndarray:
-    out = labels.copy()
-    n = len(out)
-    if n == 0:
-        return out
-
-    start = 0
-    while start < n:
-        end = start + 1
-        while end < n and out[end] == out[start]:
-            end += 1
-        seg_len = end - start
-        if seg_len < min_len:
-            prev_label = out[start - 1] if start > 0 else None
-            next_label = out[end] if end < n else None
-            fill_label = prev_label if prev_label is not None else next_label
-            if fill_label is not None:
-                out[start:end] = fill_label
-        start = end
-    return out
 
 
 def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
@@ -141,16 +122,26 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
 
     labels: Dict[str, np.ndarray] = {}
     metrics: Dict[str, Dict[str, float]] = {}
+    diagnostics: Dict = {
+        "model_selection": cluster_output.diagnostics,
+        "duration_stats": {},
+        "transition_matrices": {},
+        "hmm_bic_by_states": {},
+    }
 
     for model_result in cluster_output.results:
-        denoised = _postprocess_short_segments(model_result.labels, cfg.models.min_segment_length)
+        denoised = smooth_labels(model_result.labels, cfg.models.min_segment_length)
         labels[model_result.name] = denoised
         quality_score = cluster_quality_scores(cluster_output.transformed, denoised)
+        durations = duration_statistics(denoised)
+        diagnostics["duration_stats"][model_result.name] = durations
+        diagnostics["transition_matrices"][model_result.name] = label_transition_matrix(denoised, int(model_result.n_states)).tolist()
         metrics[model_result.name] = {
             **model_result.score_summary,
             "n_states": float(model_result.n_states),
             "silhouette_post": float(quality_score.silhouette),
             "davies_bouldin": float(quality_score.davies_bouldin),
+            "mean_regime_duration": float(durations["mean_duration"]),
         }
 
     hmm_result: Optional[HMMResult] = run_hmm(
@@ -160,14 +151,20 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
         random_state=cfg.models.random_state,
     )
     if hmm_result is not None:
-        hmm_labels = _postprocess_short_segments(hmm_result.labels, cfg.models.min_segment_length)
+        hmm_labels = smooth_labels(hmm_result.labels, cfg.models.min_segment_length)
         labels["hmm"] = hmm_labels
         hmm_quality = cluster_quality_scores(cluster_output.transformed, hmm_labels)
+        hmm_durations = duration_statistics(hmm_labels)
+        diagnostics["duration_stats"]["hmm"] = hmm_durations
+        diagnostics["transition_matrices"]["hmm"] = hmm_result.transition_matrix.tolist()
+        diagnostics["hmm_bic_by_states"] = {int(k): float(v) for k, v in hmm_result.bic_by_states.items()}
         metrics["hmm"] = {
             "n_states": float(hmm_result.n_states),
             "log_likelihood": float(hmm_result.log_likelihood),
+            "bic": float(hmm_result.bic),
             "silhouette_post": float(hmm_quality.silhouette),
             "davies_bouldin": float(hmm_quality.davies_bouldin),
+            "mean_regime_duration": float(hmm_durations["mean_duration"]),
         }
     else:
         logger.warning("hmmlearn not installed or HMM fit failed; skipping HMM")
@@ -189,7 +186,7 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
             learning_rate=cfg.deep.learning_rate,
         )
         if deep_result is not None:
-            deep_labels = _postprocess_short_segments(deep_result.labels, cfg.models.min_segment_length)
+            deep_labels = smooth_labels(deep_result.labels, cfg.models.min_segment_length)
             labels["deep_lstm_ae"] = deep_labels
             deep_quality = cluster_quality_scores(cluster_output.transformed, deep_labels)
             metrics["deep_lstm_ae"] = {
@@ -215,7 +212,7 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
             beta=cfg.deep.vae_beta,
         )
         if vae_result is not None:
-            vae_labels = _postprocess_short_segments(vae_result.labels, cfg.models.min_segment_length)
+            vae_labels = smooth_labels(vae_result.labels, cfg.models.min_segment_length)
             labels["vae_ablation"] = vae_labels
             vae_quality = cluster_quality_scores(cluster_output.transformed, vae_labels)
             metrics["vae_ablation"] = {
@@ -273,6 +270,7 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
         changepoints=cp_result,
         feature_scaler=cluster_output.scaler,
         pca_projection=pca_df,
+        diagnostics=diagnostics,
     )
 
 
@@ -301,5 +299,9 @@ def save_artifacts(result: PipelineResult, output_dir: str | Path) -> None:
 
     if result.pca_projection is not None:
         result.pca_projection.to_csv(out / "pca_projection.csv", index=False)
+
+    if result.diagnostics is not None:
+        with (out / "model_diagnostics.json").open("w", encoding="utf-8") as fp:
+            json.dump(result.diagnostics, fp, indent=2)
 
     joblib.dump(result.model_labels, out / "labels.joblib")
