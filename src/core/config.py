@@ -70,6 +70,11 @@ class TrackingConfig:
 class DeepConfig:
     enabled: bool = False
     enable_vae: bool = False
+    enable_dense_ae: bool = False
+    dense_latent_dim: int = 32
+    dense_epochs: int = 50
+    dense_batch_size: int = 128
+    dense_learning_rate: float = 0.001
     seq_len: int = 8
     hidden_dim: int = 64
     latent_dim: int = 32
@@ -162,6 +167,11 @@ def load_config(path: str | Path) -> ProjectConfig:
         deep=DeepConfig(
             enabled=bool(_get(deep_raw, "enabled", False)),
             enable_vae=bool(_get(deep_raw, "enable_vae", False)),
+            enable_dense_ae=bool(_get(deep_raw, "enable_dense_ae", False)),
+            dense_latent_dim=int(_get(deep_raw, "dense_latent_dim", 32)),
+            dense_epochs=int(_get(deep_raw, "dense_epochs", 50)),
+            dense_batch_size=int(_get(deep_raw, "dense_batch_size", 128)),
+            dense_learning_rate=float(_get(deep_raw, "dense_learning_rate", 0.001)),
             seq_len=int(_get(deep_raw, "seq_len", 8)),
             hidden_dim=int(_get(deep_raw, "hidden_dim", 64)),
             latent_dim=int(_get(deep_raw, "latent_dim", 32)),

@@ -24,7 +24,9 @@ from src.models.clustering import ClusterRunOutput, run_clustering_baselines
 from src.models.deep_autoencoder import run_lstm_autoencoder_segmentation
 from src.models.hierarchy import build_hierarchical_regimes
 from src.models.hmm_model import HMMResult, run_hmm
+from src.models.kmeans_model import best_kmeans_by_silhouette
 from src.models.label_utils import smooth_labels
+from src.models.train_autoencoder import train_dense_autoencoder
 from src.models.vae_model import run_vae_ablation
 
 logger = logging.getLogger(__name__)
@@ -41,6 +43,9 @@ class PipelineResult:
     feature_scaler: Optional[StandardScaler] = None
     pca_projection: Optional[pd.DataFrame] = None
     diagnostics: Optional[Dict] = None
+    dense_autoencoder_state: Optional[Dict] = None
+    dense_autoencoder_config: Optional[Dict] = None
+    dense_latent_projection: Optional[pd.DataFrame] = None
 
 
 def _ensure_features(cfg: ProjectConfig, df: pd.DataFrame) -> list[str]:
@@ -173,6 +178,89 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
     if cp_result is not None:
         metrics["changepoint"] = {"n_breaks": float(cp_result.n_breaks)}
 
+    dense_autoencoder_state: Optional[Dict] = None
+    dense_autoencoder_config: Optional[Dict] = None
+    dense_latent_projection: Optional[pd.DataFrame] = None
+    if cfg.deep.enable_dense_ae:
+        dense_output = train_dense_autoencoder(
+            cluster_output.transformed,
+            latent_dim=cfg.deep.dense_latent_dim,
+            epochs=cfg.deep.dense_epochs,
+            batch_size=cfg.deep.dense_batch_size,
+            lr=cfg.deep.dense_learning_rate,
+            random_state=cfg.models.random_state,
+        )
+        if dense_output is not None:
+            dense_autoencoder_state = dense_output.state_dict
+            dense_autoencoder_config = {
+                "input_dim": int(cluster_output.transformed.shape[1]),
+                "latent_dim": int(cfg.deep.dense_latent_dim),
+                "epochs": int(cfg.deep.dense_epochs),
+                "batch_size": int(cfg.deep.dense_batch_size),
+                "learning_rate": float(cfg.deep.dense_learning_rate),
+                "random_state": int(cfg.models.random_state),
+            }
+
+            _, dense_km_labels, dense_km_k, dense_km_sil, _ = best_kmeans_by_silhouette(
+                dense_output.latent_embeddings,
+                candidate_ks=cfg.models.candidate_states,
+                random_state=cfg.models.random_state,
+            )
+            dense_km_labels = smooth_labels(dense_km_labels, cfg.models.min_segment_length)
+            labels["dense_ae_kmeans"] = dense_km_labels
+            dense_km_quality = cluster_quality_scores(dense_output.latent_embeddings, dense_km_labels)
+            dense_km_durations = duration_statistics(dense_km_labels)
+            diagnostics["duration_stats"]["dense_ae_kmeans"] = dense_km_durations
+            diagnostics["transition_matrices"]["dense_ae_kmeans"] = label_transition_matrix(
+                dense_km_labels, int(dense_km_k)
+            ).tolist()
+            metrics["dense_ae_kmeans"] = {
+                "n_states": float(dense_km_k),
+                "silhouette_embed": float(dense_km_sil),
+                "silhouette_post": float(dense_km_quality.silhouette),
+                "davies_bouldin": float(dense_km_quality.davies_bouldin),
+                "mean_regime_duration": float(dense_km_durations["mean_duration"]),
+                "reconstruction_mse": float(dense_output.reconstruction_mse),
+                "final_train_loss": float(dense_output.final_train_loss),
+            }
+
+            dense_hmm_result: Optional[HMMResult] = run_hmm(
+                dense_output.latent_embeddings,
+                candidate_states=cfg.models.candidate_states,
+                covariance_type=cfg.models.hmm_covariance_type,
+                random_state=cfg.models.random_state,
+            )
+            if dense_hmm_result is not None:
+                dense_hmm_labels = smooth_labels(dense_hmm_result.labels, cfg.models.min_segment_length)
+                labels["dense_ae_hmm"] = dense_hmm_labels
+                dense_hmm_quality = cluster_quality_scores(dense_output.latent_embeddings, dense_hmm_labels)
+                dense_hmm_durations = duration_statistics(dense_hmm_labels)
+                diagnostics["duration_stats"]["dense_ae_hmm"] = dense_hmm_durations
+                diagnostics["transition_matrices"]["dense_ae_hmm"] = dense_hmm_result.transition_matrix.tolist()
+                diagnostics["hmm_bic_by_states"]["dense_ae"] = {
+                    int(k): float(v) for k, v in dense_hmm_result.bic_by_states.items()
+                }
+                metrics["dense_ae_hmm"] = {
+                    "n_states": float(dense_hmm_result.n_states),
+                    "log_likelihood": float(dense_hmm_result.log_likelihood),
+                    "bic": float(dense_hmm_result.bic),
+                    "silhouette_post": float(dense_hmm_quality.silhouette),
+                    "davies_bouldin": float(dense_hmm_quality.davies_bouldin),
+                    "mean_regime_duration": float(dense_hmm_durations["mean_duration"]),
+                    "reconstruction_mse": float(dense_output.reconstruction_mse),
+                    "final_train_loss": float(dense_output.final_train_loss),
+                }
+
+            dense_latent_projection = pd.DataFrame(
+                {
+                    "latent_pc1": dense_output.latent_pca_2d[:, 0],
+                    "latent_pc2": dense_output.latent_pca_2d[:, 1],
+                }
+            )
+            dense_latent_projection = pd.concat([windowed.meta.reset_index(drop=True), dense_latent_projection], axis=1)
+        else:
+            logger.warning("Dense autoencoder unavailable or failed; skipping dense autoencoder branch")
+
     if cfg.deep.enabled:
         deep_result = run_lstm_autoencoder_segmentation(
             cluster_output.transformed,
@@ -227,7 +315,7 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
             logger.warning("VAE ablation unavailable or failed; skipping VAE")
 
     hierarchy_source = None
-    for candidate in ("hmm", "vae_ablation", "deep_lstm_ae", "gmm", "kmeans"):
+    for candidate in ("dense_ae_hmm", "dense_ae_kmeans", "hmm", "vae_ablation", "deep_lstm_ae", "gmm", "kmeans"):
         if candidate in labels:
             hierarchy_source = candidate
             break
@@ -266,11 +354,15 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
             "window_feature_dimension": int(windowed.X.shape[1]),
             "window_count": int(windowed.X.shape[0]),
             "final_has_nan": bool(processed[features].isna().any().any()),
+            "dense_ae_enabled": bool(cfg.deep.enable_dense_ae),
         },
         changepoints=cp_result,
         feature_scaler=cluster_output.scaler,
         pca_projection=pca_df,
         diagnostics=diagnostics,
+        dense_autoencoder_state=dense_autoencoder_state,
+        dense_autoencoder_config=dense_autoencoder_config,
+        dense_latent_projection=dense_latent_projection,
     )
 
 
@@ -303,5 +395,20 @@ def save_artifacts(result: PipelineResult, output_dir: str | Path) -> None:
     if result.diagnostics is not None:
         with (out / "model_diagnostics.json").open("w", encoding="utf-8") as fp:
             json.dump(result.diagnostics, fp, indent=2)
+
+    if result.dense_autoencoder_config is not None:
+        with (out / "dense_autoencoder_config.json").open("w", encoding="utf-8") as fp:
+            json.dump(result.dense_autoencoder_config, fp, indent=2)
+
+    if result.dense_latent_projection is not None:
+        result.dense_latent_projection.to_csv(out / "dense_latent_projection.csv", index=False)
+
+    if result.dense_autoencoder_state is not None:
+        try:
+            import torch
+
+            torch.save(result.dense_autoencoder_state, out / "autoencoder_dense.pt")
+        except Exception:
+            joblib.dump(result.dense_autoencoder_state, out / "autoencoder_dense_state.joblib")
 
     joblib.dump(result.model_labels, out / "labels.joblib")

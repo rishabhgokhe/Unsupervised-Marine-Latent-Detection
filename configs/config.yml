@@ -65,6 +65,11 @@ tracking:
 deep:
   enabled: false
   enable_vae: false
+  enable_dense_ae: false
+  dense_latent_dim: 32
+  dense_epochs: 50
+  dense_batch_size: 128
+  dense_learning_rate: 0.001
   seq_len: 8
   hidden_dim: 64
   latent_dim: 32

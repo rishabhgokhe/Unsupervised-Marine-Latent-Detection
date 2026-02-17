@@ -43,6 +43,7 @@ def main() -> None:
                 "n_super_regimes": cfg.models.n_super_regimes,
                 "deep_enabled": cfg.deep.enabled,
                 "deep_enable_vae": cfg.deep.enable_vae,
+                "deep_enable_dense_ae": cfg.deep.enable_dense_ae,
             }
         )
 
