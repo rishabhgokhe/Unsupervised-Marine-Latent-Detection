@@ -12,7 +12,7 @@ import pandas as pd
 
 from src.core.config import ProjectConfig
 from src.data.ingest import read_csv_dataset, resample_by_station
-from src.data.preprocess import quality_preprocess
+from src.data.preprocess import quality_preprocess, replace_special_missing
 from src.evaluation.metrics import cluster_quality_scores
 from src.features.windows import WindowedFeatures, build_sliding_windows
 from src.models.changepoint import ChangePointResult, detect_changepoints
@@ -37,7 +37,10 @@ class PipelineResult:
 
 def _ensure_features(cfg: ProjectConfig, df: pd.DataFrame) -> list[str]:
     if cfg.data.numeric_columns:
-        return cfg.data.numeric_columns
+        present = [c for c in cfg.data.numeric_columns if c in df.columns]
+        if len(present) < 4:
+            raise ValueError("Too few configured numeric features found in data; expected at least 4 present columns")
+        return present
     auto_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
     auto_cols = [c for c in auto_cols if c not in [cfg.data.station_col]]
     return auto_cols
@@ -72,7 +75,10 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
         timestamp_col=cfg.data.timestamp_col,
         station_col=cfg.data.station_col,
         expected_columns=[*cfg.data.numeric_columns, *cfg.data.directional_columns],
+        strict_columns=False,
     )
+    all_feature_candidates = [*cfg.data.numeric_columns, *cfg.data.directional_columns]
+    base_df = replace_special_missing(base_df, all_feature_candidates, sentinels=[99, 999, 9999, 99999])
 
     features = _ensure_features(cfg, base_df)
     logger.info("Using %d numeric columns", len(features))
@@ -83,6 +89,7 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
         timestamp_col=cfg.data.timestamp_col,
         numeric_columns=features,
         rule=cfg.data.resample_rule,
+        directional_columns=cfg.data.directional_columns,
     )
 
     processed, quality = quality_preprocess(
@@ -98,7 +105,7 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
         high_q=cfg.preprocess.clip_quantile_high,
     )
 
-    directional_encoded = [f"{c}_sin" for c in cfg.data.directional_columns] + [f"{c}_cos" for c in cfg.data.directional_columns]
+    directional_encoded = [f"{c}_SIN" for c in cfg.data.directional_columns] + [f"{c}_COS" for c in cfg.data.directional_columns]
     model_feature_cols = list(dict.fromkeys([*features, *[c for c in directional_encoded if c in processed.columns]]))
 
     windowed = build_sliding_windows(
@@ -234,6 +241,10 @@ def run_pipeline(cfg: ProjectConfig) -> PipelineResult:
             "missing_ratio_before": quality.missing_ratio_before,
             "missing_ratio_after": quality.missing_ratio_after,
             "outlier_clip_bounds": quality.outlier_clip_bounds,
+            "selected_numeric_features": features,
+            "selected_directional_features": [c for c in cfg.data.directional_columns if c in processed.columns],
+            "final_model_feature_count": len(model_feature_cols),
+            "final_has_nan": bool(processed[features].isna().any().any()),
         },
         changepoints=cp_result,
     )

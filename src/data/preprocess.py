@@ -14,14 +14,23 @@ class QualityReport:
     outlier_clip_bounds: Dict[str, tuple[float, float]]
 
 
+def replace_special_missing(df: pd.DataFrame, columns: List[str], sentinels: List[float]) -> pd.DataFrame:
+    out = df.copy()
+    cols = [c for c in columns if c in out.columns]
+    if not cols:
+        return out
+    out[cols] = out[cols].replace(sentinels, np.nan)
+    return out
+
+
 def encode_directional_features(df: pd.DataFrame, directional_columns: List[str]) -> pd.DataFrame:
     out = df.copy()
     for col in directional_columns:
         if col not in out.columns:
             continue
         radians = np.deg2rad(out[col])
-        out[f"{col}_sin"] = np.sin(radians)
-        out[f"{col}_cos"] = np.cos(radians)
+        out[f"{col}_SIN"] = np.sin(radians)
+        out[f"{col}_COS"] = np.cos(radians)
     return out
 
 

@@ -34,7 +34,7 @@ def test_quality_preprocess_encodes_direction_and_fills_missing():
         high_q=1.0,
     )
 
-    assert "WIND_DIR_sin" in out.columns
-    assert "WIND_DIR_cos" in out.columns
+    assert "WIND_DIR_SIN" in out.columns
+    assert "WIND_DIR_COS" in out.columns
     assert float(out["WIND_SPEED"].isna().mean()) == 0.0
     assert report.missing_ratio_before["WIND_SPEED"] > report.missing_ratio_after["WIND_SPEED"]

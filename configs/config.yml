@@ -1,14 +1,13 @@
 data:
-  input_path: data/raw/synthetic_marine_extended_unlabelled_dataset.csv
+  input_path: data/raw/real data.csv
   timestamp_col: DATE
   station_col: STATION
   numeric_columns:
-    - LATITUDE
-    - LONGITUDE
     - WIND_SPEED
     - SEA_LVL_PRES
     - AIR_TEMP
     - SEA_SURF_TEMP
+    - DEW_PT_TEMP
     - WAVE_PERIOD
     - WAVE_HGT
     - SWELL_PERIOD
