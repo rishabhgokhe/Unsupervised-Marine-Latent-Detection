@@ -27,6 +27,24 @@ def preprocess_input(df: pd.DataFrame, cfg: ProjectConfig, scaler: object, infer
     directional_columns: List[str] = list(inference_config.get("directional_columns", cfg.data.directional_columns))
 
     base_df = df.copy()
+    if cfg.data.timestamp_col not in base_df.columns:
+        raise ValueError(f"Missing timestamp column: {cfg.data.timestamp_col}")
+    if cfg.data.station_col not in base_df.columns:
+        # Fallback for single-station uploads.
+        base_df[cfg.data.station_col] = "STATION_0"
+
+    # Keep inference compatible with trained artifacts: if incoming data misses
+    # expected raw columns, create them so downstream feature dimensions remain aligned.
+    for col in [*numeric_columns, *directional_columns]:
+        if col not in base_df.columns:
+            base_df[col] = np.nan
+
+    base_df[cfg.data.timestamp_col] = pd.to_datetime(base_df[cfg.data.timestamp_col], errors="coerce")
+    base_df = base_df.dropna(subset=[cfg.data.timestamp_col]).copy()
+    if base_df.empty:
+        raise ValueError("No valid timestamps found after parsing input CSV")
+    base_df = base_df.sort_values([cfg.data.station_col, cfg.data.timestamp_col]).reset_index(drop=True)
+
     base_df = replace_special_missing(base_df, [*numeric_columns, *directional_columns], sentinels=[99, 999, 9999, 99999])
 
     aligned = resample_by_station(

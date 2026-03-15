@@ -39,21 +39,42 @@ def handle_missing_values(
     group_col: str,
     timestamp_col: str,
     numeric_columns: List[str],
+    directional_columns: List[str] | None,
     small_gap_limit: int,
     medium_gap_limit: int,
     drop_large_gap_rows: bool,
 ) -> pd.DataFrame:
     out = df.copy()
+    directional_columns = directional_columns or []
 
     def _fill_group(grp: pd.DataFrame) -> pd.DataFrame:
         g = grp.sort_values(timestamp_col).copy() if timestamp_col in grp.columns else grp.copy()
+        present_directional = [c for c in directional_columns if c in g.columns]
+        present_numeric = [c for c in numeric_columns if c in g.columns and c not in present_directional]
         # short gaps: directional carry-forward/backward for continuity
-        g[numeric_columns] = g[numeric_columns].ffill(limit=small_gap_limit).bfill(limit=small_gap_limit)
-        # medium gaps: linear interpolation with bounded window
-        g[numeric_columns] = g[numeric_columns].interpolate(method="linear", limit=medium_gap_limit)
+        if present_numeric:
+            g[present_numeric] = g[present_numeric].ffill(limit=small_gap_limit).bfill(limit=small_gap_limit)
+            # medium gaps: linear interpolation with bounded window
+            g[present_numeric] = g[present_numeric].interpolate(method="linear", limit=medium_gap_limit)
+
+        # Directional interpolation via sin/cos to preserve circular continuity.
+        for dcol in present_directional:
+            rad = np.deg2rad(g[dcol])
+            sin = np.sin(rad)
+            cos = np.cos(rad)
+            sin = sin.ffill(limit=small_gap_limit).bfill(limit=small_gap_limit)
+            cos = cos.ffill(limit=small_gap_limit).bfill(limit=small_gap_limit)
+            sin = sin.interpolate(method="linear", limit=medium_gap_limit)
+            cos = cos.interpolate(method="linear", limit=medium_gap_limit)
+            g[dcol] = (np.rad2deg(np.arctan2(sin, cos)) + 360) % 360
         return g
 
-    out = out.groupby(group_col, group_keys=False).apply(_fill_group)
+    grouped = out.groupby(group_col, group_keys=False)
+    try:
+        # Pandas >= 2.2 supports include_groups to silence deprecation warning.
+        out = grouped.apply(_fill_group, include_groups=False)
+    except TypeError:
+        out = grouped.apply(_fill_group)
 
     if drop_large_gap_rows:
         out = out.dropna(subset=numeric_columns)
@@ -99,6 +120,7 @@ def quality_preprocess(
         group_col=group_col,
         timestamp_col=timestamp_col,
         numeric_columns=fill_columns,
+        directional_columns=directional_columns,
         small_gap_limit=small_gap_limit,
         medium_gap_limit=medium_gap_limit,
         drop_large_gap_rows=drop_large_gap_rows,

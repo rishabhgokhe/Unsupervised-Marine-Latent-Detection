@@ -14,7 +14,7 @@ class DataConfig:
     station_col: str = "STATION"
     numeric_columns: List[str] = field(default_factory=list)
     directional_columns: List[str] = field(default_factory=list)
-    resample_rule: str = "1H"
+    resample_rule: str = "1h"
 
 
 @dataclass
@@ -119,7 +119,7 @@ def load_config(path: str | Path) -> ProjectConfig:
         station_col=_get(data_raw, "station_col", "STATION"),
         numeric_columns=list(_get(data_raw, "numeric_columns", [])),
         directional_columns=list(_get(data_raw, "directional_columns", [])),
-        resample_rule=_get(data_raw, "resample_rule", "1H"),
+        resample_rule=_get(data_raw, "resample_rule", "1h"),
     )
 
     if not data_cfg.input_path:

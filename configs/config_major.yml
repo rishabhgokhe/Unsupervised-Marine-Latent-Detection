@@ -1,0 +1,80 @@
+data:
+  input_path: data/raw/merged final.parquet
+  timestamp_col: DATE
+  station_col: STATION
+  numeric_columns:
+    - WIND_SPEED
+    - SEA_LVL_PRES
+    - AIR_TEMP
+    - SEA_SURF_TEMP
+    - DEW_PT_TEMP
+    - WAVE_PERIOD
+    - WAVE_HGT
+    - SWELL_PERIOD
+    - SWELL_HGT
+    - TOT_CLD_AMT
+  directional_columns:
+    - WIND_DIR
+    - WAVE_DIR
+    - SWELL_DIR
+  resample_rule: 1h
+
+preprocess:
+  small_gap_limit: 2
+  medium_gap_limit: 6
+  drop_large_gap_rows: false
+  clip_quantile_low: 0.005
+  clip_quantile_high: 0.995
+
+features:
+  window_size: 12
+  step_size: 6
+  use_multiscale: true
+  multi_window_sizes: [6, 24, 72]
+  multi_stride: 3
+  save_pca_sanity: true
+  rolling_features:
+    - mean
+    - std
+    - trend
+    - energy
+    - max
+    - min
+
+models:
+  candidate_states: [10, 12, 15]
+  random_state: 42
+  hmm_covariance_type: diag
+  min_segment_length: 2
+  n_super_regimes: 4
+
+evaluation:
+  boundary_tolerance_steps: 2
+
+app:
+  app_title: Marine Regime Discovery Dashboard
+  author: Rishabh Gokhe
+
+tracking:
+  enabled: false
+  tracking_uri: file:./mlruns
+  experiment_name: marine-regime-discovery
+  run_name: major-run
+  log_artifacts: true
+
+deep:
+  enabled: true
+  enable_vae: true
+  enable_dense_ae: true
+  dense_latent_dim: 32
+  dense_epochs: 40
+  dense_batch_size: 128
+  dense_learning_rate: 0.001
+  seq_len: 8
+  hidden_dim: 64
+  latent_dim: 32
+  epochs: 20
+  batch_size: 64
+  learning_rate: 0.001
+  vae_latent_dim: 8
+  vae_beta: 1.0

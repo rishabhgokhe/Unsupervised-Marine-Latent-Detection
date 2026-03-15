@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Dict, Optional
 
 import joblib
-import torch
 
 from src.models.autoencoder_dense import DenseAutoencoder
 
@@ -14,10 +13,11 @@ from src.models.autoencoder_dense import DenseAutoencoder
 @dataclass
 class InferenceModels:
     scaler: object
-    ae_model: DenseAutoencoder
+    ae_model: Optional[DenseAutoencoder]
     hmm_model: object
-    macro_mapping: Dict[int, int]
+    macro_mapping: Optional[Dict[int, int]]
     inference_config: Dict
+    mode: str
 
 
 def _load_json(path: Path) -> Dict:
@@ -39,10 +39,32 @@ def load_models(artifacts_dir: str | Path) -> InferenceModels:
 
     scaler = joblib.load(art / "feature_scaler.pkl")
     hmm_model = joblib.load(art / "hmm.pkl")
-    macro_mapping = _normalize_macro_mapping(joblib.load(art / "macro_mapping.pkl"))
-
-    dense_cfg = _load_json(art / "dense_autoencoder_config.json")
     inference_cfg = _load_json(art / "inference_config.json")
+    dense_cfg = _load_json(art / "dense_autoencoder_config.json")
+
+    dense_pt = art / "autoencoder_dense.pt"
+    macro_pkl = art / "macro_mapping.pkl"
+    use_dense = dense_pt.exists() and macro_pkl.exists() and bool(dense_cfg)
+
+    if not use_dense:
+        return InferenceModels(
+            scaler=scaler,
+            ae_model=None,
+            hmm_model=hmm_model,
+            macro_mapping=None,
+            inference_config=inference_cfg,
+            mode="hmm_only",
+        )
+
+    try:
+        import torch
+    except Exception as exc:
+        raise RuntimeError(
+            "Dense artifacts found but PyTorch is missing. "
+            "Install with `pip install -r requirements-deep.txt`."
+        ) from exc
+
+    macro_mapping = _normalize_macro_mapping(joblib.load(macro_pkl))
 
     input_dim = int(dense_cfg.get("input_dim", 0))
     latent_dim = int(dense_cfg.get("latent_dim", 32))
@@ -60,4 +82,5 @@ def load_models(artifacts_dir: str | Path) -> InferenceModels:
         hmm_model=hmm_model,
         macro_mapping=macro_mapping,
         inference_config=inference_cfg,
+        mode="dense_hierarchical",
     )

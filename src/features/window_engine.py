@@ -41,7 +41,7 @@ def generate_multiscale_window_features(
     window_sizes: List[int],
     stride: int,
 ) -> WindowedFeatures:
-    """Generate past-only windows at multiple scales and stack them."""
+    """Generate past-only windows at multiple scales and concatenate per window end."""
     records: list[dict] = []
     meta_records: list[dict] = []
 
@@ -49,28 +49,36 @@ def generate_multiscale_window_features(
         g = grp.sort_values(timestamp_col).reset_index(drop=True)
         values = g[feature_columns].to_numpy(dtype=float)
 
-        for scale in sorted(window_sizes):
-            if len(g) < scale:
-                continue
+        scales = sorted(set(int(s) for s in window_sizes if int(s) > 0))
+        if not scales:
+            continue
+        max_scale = max(scales)
+        if len(g) < max_scale:
+            continue
 
-            cols = _feature_names(feature_columns, scale)
-            for start in range(0, len(g) - scale + 1, stride):
-                end = start + scale
-                window = values[start:end]
+        cols_by_scale = {scale: _feature_names(feature_columns, scale) for scale in scales}
+        for end in range(max_scale - 1, len(g), stride):
+            rec: dict[str, float] = {}
+            for scale in scales:
+                start = end - scale + 1
+                window = values[start : end + 1]
                 stats = compute_window_statistics(window)
+                cols = cols_by_scale[scale]
+                for i in range(len(cols)):
+                    rec[cols[i]] = float(stats[i])
 
-                rec = {cols[i]: float(stats[i]) for i in range(len(cols))}
-                records.append(rec)
-                meta_records.append(
-                    {
-                        "station": station,
-                        "window_scale": int(scale),
-                        "start_idx": int(start),
-                        "end_idx": int(end - 1),
-                        "start_time": g[timestamp_col].iloc[start],
-                        "end_time": g[timestamp_col].iloc[end - 1],
-                    }
-                )
+            records.append(rec)
+            start_idx = end - max_scale + 1
+            meta_records.append(
+                {
+                    "station": station,
+                    "window_scale": int(max_scale),
+                    "start_idx": int(start_idx),
+                    "end_idx": int(end),
+                    "start_time": g[timestamp_col].iloc[start_idx],
+                    "end_time": g[timestamp_col].iloc[end],
+                }
+            )
 
     if not records:
         raise ValueError("No windows generated; verify window_sizes/stride and data length")

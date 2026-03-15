@@ -1,0 +1,66 @@
+{
+  "timestamp_col": "DATE",
+  "station_col": "STATION",
+  "numeric_columns": [
+    "WIND_SPEED",
+    "SEA_LVL_PRES",
+    "AIR_TEMP",
+    "SEA_SURF_TEMP",
+    "DEW_PT_TEMP",
+    "WAVE_PERIOD",
+    "WAVE_HGT",
+    "SWELL_PERIOD",
+    "SWELL_HGT",
+    "TOT_CLD_AMT"
+  ],
+  "directional_columns": [
+    "WIND_DIR",
+    "WAVE_DIR",
+    "SWELL_DIR"
+  ],
+  "model_feature_cols": [
+    "WIND_SPEED",
+    "SEA_LVL_PRES",
+    "AIR_TEMP",
+    "SEA_SURF_TEMP",
+    "DEW_PT_TEMP",
+    "WAVE_PERIOD",
+    "WAVE_HGT",
+    "SWELL_PERIOD",
+    "SWELL_HGT",
+    "TOT_CLD_AMT",
+    "WIND_DIR_SIN",
+    "WAVE_DIR_SIN",
+    "SWELL_DIR_SIN",
+    "WIND_DIR_COS",
+    "WAVE_DIR_COS",
+    "SWELL_DIR_COS"
+  ],
+  "windowing": {
+    "use_multiscale": true,
+    "window_size": 12,
+    "step_size": 6,
+    "rolling_features": [
+      "mean",
+      "std",
+      "trend",
+      "energy",
+      "max",
+      "min"
+    ],
+    "multi_window_sizes": [
+      6,
+      24,
+      72
+    ],
+    "multi_stride": 3
+  },
+  "dense_autoencoder": {
+    "input_dim": 288,
+    "latent_dim": 32,
+    "epochs": 40,
+    "batch_size": 128,
+    "learning_rate": 0.001,
+    "random_state": 42
+  }
+}

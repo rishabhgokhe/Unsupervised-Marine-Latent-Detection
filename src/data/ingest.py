@@ -11,6 +11,19 @@ class DataIngestionError(RuntimeError):
     pass
 
 
+def read_dataset_file(path: str | Path) -> pd.DataFrame:
+    data_path = Path(path)
+    if not data_path.exists():
+        raise DataIngestionError(f"Input dataset not found: {data_path}")
+
+    suffix = data_path.suffix.lower()
+    if suffix == ".csv":
+        return pd.read_csv(data_path)
+    if suffix == ".parquet":
+        return pd.read_parquet(data_path)
+    raise DataIngestionError(f"Unsupported dataset format: {suffix}. Expected .csv or .parquet")
+
+
 def read_csv_dataset(
     path: str | Path,
     timestamp_col: str,
@@ -18,11 +31,7 @@ def read_csv_dataset(
     expected_columns: Iterable[str],
     strict_columns: bool = False,
 ) -> pd.DataFrame:
-    csv_path = Path(path)
-    if not csv_path.exists():
-        raise DataIngestionError(f"Input dataset not found: {csv_path}")
-
-    df = pd.read_csv(csv_path)
+    df = read_dataset_file(path)
     required = {timestamp_col, station_col, *expected_columns}
     missing = sorted(required - set(df.columns))
     if missing and strict_columns:
@@ -46,6 +55,10 @@ def resample_by_station(
 ) -> pd.DataFrame:
     if not numeric_columns:
         raise ValueError("numeric_columns must be provided for resampling")
+
+    # Pandas deprecates uppercase hour alias; normalize only the hour token.
+    if "H" in rule:
+        rule = rule.replace("H", "h")
 
     directional_columns = directional_columns or []
     frames = []

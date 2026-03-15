@@ -46,3 +46,45 @@ def transition_heatmap(labels: np.ndarray, title: str):
     fig = px.imshow(mat, text_auto=".2f", aspect="auto", title=title)
     fig.update_layout(xaxis_title="To", yaxis_title="From")
     return fig
+
+
+def run_length_histogram(labels: np.ndarray, title: str):
+    labels = np.asarray(labels, dtype=int)
+    if labels.size == 0:
+        return go.Figure()
+
+    runs = []
+    current = labels[0]
+    run_len = 1
+    for i in range(1, len(labels)):
+        if labels[i] == current:
+            run_len += 1
+        else:
+            runs.append({"state": int(current), "run_length": int(run_len)})
+            current = labels[i]
+            run_len = 1
+    runs.append({"state": int(current), "run_length": int(run_len)})
+    run_df = pd.DataFrame(runs)
+    return px.histogram(run_df, x="run_length", color="state", nbins=30, title=title)
+
+
+def micro_macro_heatmap(micro: np.ndarray, macro: np.ndarray, title: str):
+    if len(micro) == 0 or len(macro) == 0:
+        return go.Figure()
+    ct = pd.crosstab(pd.Series(micro, name="micro"), pd.Series(macro, name="macro"))
+    fig = px.imshow(ct.values, text_auto=True, aspect="auto", title=title)
+    fig.update_layout(xaxis_title="Macro", yaxis_title="Micro")
+    return fig
+
+
+def feature_profile_heatmap(summary_df: pd.DataFrame, title: str):
+    if summary_df.empty:
+        return go.Figure()
+    z = summary_df.values
+    fig = px.imshow(z, aspect="auto", title=title, color_continuous_scale="Blues")
+    fig.update_layout(
+        xaxis=dict(tickmode="array", tickvals=list(range(len(summary_df.columns))), ticktext=list(summary_df.columns)),
+        yaxis=dict(tickmode="array", tickvals=list(range(len(summary_df.index))), ticktext=[str(i) for i in summary_df.index]),
+    )
+    fig.update_yaxes(title="Regime")
+    return fig

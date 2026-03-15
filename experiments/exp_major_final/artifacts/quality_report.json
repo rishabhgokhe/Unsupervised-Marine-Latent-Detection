@@ -1,0 +1,90 @@
+{
+  "missing_ratio_before": {
+    "WIND_SPEED": 0.9081049102741077,
+    "SEA_LVL_PRES": 0.5766121080654704,
+    "AIR_TEMP": 0.8678761585486098,
+    "SEA_SURF_TEMP": 0.45060145927824885,
+    "DEW_PT_TEMP": 0.8714257542890949,
+    "WAVE_PERIOD": 0.9763360283967659,
+    "WAVE_HGT": 0.9749556300532439,
+    "SWELL_PERIOD": 0.9852100177479787,
+    "SWELL_HGT": 0.9838296194044567,
+    "TOT_CLD_AMT": 0.9743640307631631
+  },
+  "missing_ratio_after": {
+    "WIND_SPEED": 0.8260698087162296,
+    "SEA_LVL_PRES": 0.4557286531256162,
+    "AIR_TEMP": 0.789587852494577,
+    "SEA_SURF_TEMP": 0.29225004929994086,
+    "DEW_PT_TEMP": 0.7911654506014593,
+    "WAVE_PERIOD": 0.9274304870834155,
+    "WAVE_HGT": 0.924275290869651,
+    "SWELL_PERIOD": 0.9451784657858411,
+    "SWELL_HGT": 0.9414316702819957,
+    "TOT_CLD_AMT": 0.9175704989154013
+  },
+  "outlier_clip_bounds": {
+    "WIND_SPEED": [
+      11.0,
+      113.0
+    ],
+    "SEA_LVL_PRES": [
+      10110.0,
+      10190.0
+    ],
+    "AIR_TEMP": [
+      200.0,
+      290.0
+    ],
+    "SEA_SURF_TEMP": [
+      217.35,
+      262.1199999999999
+    ],
+    "DEW_PT_TEMP": [
+      143.74,
+      260.0
+    ],
+    "WAVE_PERIOD": [
+      1.0,
+      12.16500000000002
+    ],
+    "WAVE_HGT": [
+      0.0,
+      4.0
+    ],
+    "SWELL_PERIOD": [
+      1.0,
+      15.615000000000009
+    ],
+    "SWELL_HGT": [
+      0.0,
+      5.0
+    ],
+    "TOT_CLD_AMT": [
+      0.0,
+      8.0
+    ]
+  },
+  "selected_numeric_features": [
+    "WIND_SPEED",
+    "SEA_LVL_PRES",
+    "AIR_TEMP",
+    "SEA_SURF_TEMP",
+    "DEW_PT_TEMP",
+    "WAVE_PERIOD",
+    "WAVE_HGT",
+    "SWELL_PERIOD",
+    "SWELL_HGT",
+    "TOT_CLD_AMT"
+  ],
+  "selected_directional_features": [
+    "WIND_DIR",
+    "WAVE_DIR",
+    "SWELL_DIR"
+  ],
+  "final_model_feature_count": 16,
+  "window_feature_dimension": 288,
+  "window_count": 3949,
+  "final_has_nan": true,
+  "dense_ae_enabled": true
+}

@@ -136,7 +136,55 @@ make check
 make test
 make run
 make app
+make research-exp
+make research-ablation
+make research-robustness
+make research-bundle
 ```
+
+## Step 8: Research Packaging
+
+Structured experiment logs are written under `experiments/<experiment_id>/`:
+- `experiment.json` (config, metrics, diagnostics, notes)
+- `comparative_rows.csv`
+- `artifacts/` (full pipeline outputs for that experiment)
+
+Run one controlled experiment:
+
+```bash
+PYTHONPATH=. python3 -m src.research.run_research_packaging run-experiment \
+  --config configs/config.yml \
+  --experiment-id exp_hmm_latent_ws_multi \
+  --output-root experiments
+```
+
+Build comparison table across logged experiments:
+
+```bash
+PYTHONPATH=. python3 -m src.research.run_research_packaging build-comparative --experiments-dir experiments
+```
+
+Run ablation suite:
+
+```bash
+PYTHONPATH=. python3 -m src.research.run_research_packaging run-ablation --config configs/config.yml --output-root experiments
+```
+
+Run robustness suite:
+
+```bash
+PYTHONPATH=. python3 -m src.research.run_research_packaging run-robustness --config configs/config.yml --output-root experiments
+```
+
+Create final bundle artifacts:
+
+```bash
+PYTHONPATH=. python3 -m src.research.run_research_packaging bundle --experiments-dir experiments
+```
+
+Supporting documentation:
+- `docs/report_template.md`
+- `docs/viva_defense_notes.md`
 
 ## Docker
 
