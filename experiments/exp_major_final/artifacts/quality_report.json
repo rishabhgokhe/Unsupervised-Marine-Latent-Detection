@@ -83,8 +83,8 @@
     "SWELL_DIR"
   ],
   "final_model_feature_count": 16,
-  "window_feature_dimension": 288,
-  "window_count": 3949,
+  "window_feature_dimension": 32,
+  "window_count": 387,
   "final_has_nan": true,
-  "dense_ae_enabled": true
+  "dense_ae_enabled": false
 }

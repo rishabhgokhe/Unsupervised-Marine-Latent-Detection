@@ -1,73 +1,33 @@
 {
   "kmeans": {
-    "silhouette": 0.5211890784280422,
-    "n_states": 15.0,
-    "silhouette_post": 0.5082864241749412,
-    "davies_bouldin": 1.3384299183645587,
-    "mean_regime_duration": 44.875
+    "silhouette": 0.8188915841788649,
+    "n_states": 2.0,
+    "silhouette_post": 0.8061884522182163,
+    "davies_bouldin": 1.0410824011640214,
+    "mean_regime_duration": 55.285714285714285
   },
   "gmm": {
-    "silhouette": 0.42546682990495494,
-    "bic": -9293276.48310069,
-    "aic": -11925414.462845199,
-    "n_states": 10.0,
-    "silhouette_post": 0.4183566888832875,
-    "davies_bouldin": 1.238537037427348,
-    "mean_regime_duration": 48.15853658536585
+    "silhouette": 0.5488089808023927,
+    "bic": -101311.27784722371,
+    "aic": -112410.70068647922,
+    "n_states": 5.0,
+    "silhouette_post": 0.4360252079731733,
+    "davies_bouldin": 1.331541846682968,
+    "mean_regime_duration": 20.36842105263158
   },
   "hmm": {
-    "n_states": 12.0,
-    "log_likelihood": 4909584.612236728,
-    "bic": -9760736.952655418,
-    "silhouette_post": 0.4070485438808676,
-    "davies_bouldin": 1.8742912919951484,
-    "mean_regime_duration": 49.9873417721519
+    "n_states": 6.0,
+    "log_likelihood": 39306.52867866597,
+    "bic": -76110.51898625943,
+    "silhouette_post": 0.5984649079551191,
+    "davies_bouldin": 1.356922592071733,
+    "mean_regime_duration": 25.8
   },
   "changepoint": {
-    "n_breaks": 19.0
-  },
-  "dense_ae_kmeans": {
-    "n_states": 15.0,
-    "silhouette_embed": 0.4715176522731781,
-    "silhouette_post": 0.45692676305770874,
-    "davies_bouldin": 1.1896462748800682,
-    "mean_regime_duration": 46.45882352941177,
-    "reconstruction_mse": 0.032037463039159775,
-    "final_train_loss": 0.03563956153248587
-  },
-  "dense_ae_hmm": {
-    "n_states": 12.0,
-    "log_likelihood": -83595.35552088215,
-    "bic": 174743.1815488577,
-    "silhouette_post": 0.2769031524658203,
-    "davies_bouldin": 2.427912943864446,
-    "mean_regime_duration": 28.41007194244604,
-    "reconstruction_mse": 0.032037463039159775,
-    "final_train_loss": 0.03563956153248587
-  },
-  "dense_ae_hmm_macro": {
-    "n_states": 4.0,
-    "silhouette_post": 0.8177542686462402,
-    "davies_bouldin": 0.7852340057559415,
-    "mean_regime_duration": 157.96
-  },
-  "deep_lstm_ae": {
-    "n_states": 15.0,
-    "train_loss": 0.3709349896638624,
-    "silhouette_embed": 0.7886329293251038,
-    "silhouette_post": 0.48312701520042667,
-    "davies_bouldin": 2.6129795809373495
-  },
-  "vae_ablation": {
-    "n_states": 10.0,
-    "recon_loss": 0.628435872975857,
-    "kl_loss": 3.5416181111530375e-06,
-    "silhouette_embed": 0.19751714169979095,
-    "silhouette_post": 0.19684130496712993,
-    "davies_bouldin": 3.431658007550407
+    "n_breaks": 4.0
   },
   "hierarchy_super": {
-    "source_model": 4.0,
-    "n_super_regimes": 4.0
+    "source_model": 2.0,
+    "n_super_regimes": 3.0
   }
 }

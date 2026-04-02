@@ -153,7 +153,7 @@ Run one controlled experiment:
 
 ```bash
 PYTHONPATH=. python3 -m src.research.run_research_packaging run-experiment \
-  --config configs/config.yml \
+  --config configs/config_research.yml \
   --experiment-id exp_hmm_latent_ws_multi \
   --output-root experiments
 ```
@@ -164,23 +164,10 @@ Build comparison table across logged experiments:
 PYTHONPATH=. python3 -m src.research.run_research_packaging build-comparative --experiments-dir experiments
 ```
 
-Run ablation suite:
-
-```bash
-PYTHONPATH=. python3 -m src.research.run_research_packaging run-ablation --config configs/config.yml --output-root experiments
-```
-
-Run robustness suite:
-
-```bash
-PYTHONPATH=. python3 -m src.research.run_research_packaging run-robustness --config configs/config.yml --output-root experiments
-```
-
-Create final bundle artifacts:
-
-```bash
-PYTHONPATH=. python3 -m src.research.run_research_packaging bundle --experiments-dir experiments
-```
+Notes:
+- `experiments/` stores real, generated results used in the paper; it is not embedded into the model.
+- The Streamlit UI includes a **Research Results** tab that reads from `experiments/exp_major_final/`.
+- Use `configs/config_research.yml` when you want to regenerate paper results without changing your main app config.
 
 Supporting documentation:
 - `docs/report_template.md`

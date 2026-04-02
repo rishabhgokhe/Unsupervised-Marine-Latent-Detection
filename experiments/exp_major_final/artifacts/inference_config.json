@@ -37,16 +37,12 @@
     "SWELL_DIR_COS"
   ],
   "windowing": {
-    "use_multiscale": true,
+    "use_multiscale": false,
     "window_size": 12,
-    "step_size": 6,
+    "step_size": 12,
     "rolling_features": [
       "mean",
-      "std",
-      "trend",
-      "energy",
-      "max",
-      "min"
+      "std"
     ],
     "multi_window_sizes": [
       6,
@@ -55,12 +51,5 @@
     ],
     "multi_stride": 3
   },
-  "dense_autoencoder": {
-    "input_dim": 288,
-    "latent_dim": 32,
-    "epochs": 40,
-    "batch_size": 128,
-    "learning_rate": 0.001,
-    "random_state": 42
-  }
+  "dense_autoencoder": null
 }
