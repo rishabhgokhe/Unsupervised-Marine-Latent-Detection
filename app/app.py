@@ -105,7 +105,7 @@ def main() -> None:
     )
 
     st.sidebar.header("Deployment")
-    artifacts_dir = st.sidebar.text_input("Artifacts directory", value="outputs/latest")
+    artifacts_dir = st.sidebar.text_input("Artifacts directory", value="artifacts/latest")
     cfg_path = st.sidebar.text_input("Config path", value="configs/config.yml")
 
     try:

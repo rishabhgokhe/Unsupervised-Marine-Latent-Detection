@@ -113,6 +113,11 @@ Dashboard supports:
 - CSV upload and regime prediction (micro + macro)
 - timeline, distribution, transition heatmap, and downloadable labeled output
 
+For Streamlit Cloud deployments, keep inference artifacts in `artifacts/latest`
+(required: `feature_scaler.pkl`, `hmm.pkl`; optional: `autoencoder_dense.pt`,
+`macro_mapping.pkl`, `dense_autoencoder_config.json`) so they are committed and
+available at runtime.
+
 ## MLflow Tracking
 
 Enable in config:
