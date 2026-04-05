@@ -11,9 +11,10 @@ def run_inference(
     ae_model: object | None,
     hmm_model: object,
     macro_mapping: dict[int, int] | None,
+    device: str | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     if ae_model is not None:
-        latent = get_latent_embeddings(ae_model, x_features_scaled)
+        latent = get_latent_embeddings(ae_model, x_features_scaled, device=device)
         if latent is None:
             raise RuntimeError("Failed to compute latent embeddings")
         hmm_input = latent
@@ -29,10 +30,14 @@ def run_inference(
     return latent, micro_states, macro_states
 
 
-def compute_reconstruction_errors(ae_model: object | None, x_features_scaled: np.ndarray) -> np.ndarray | None:
+def compute_reconstruction_errors(
+    ae_model: object | None,
+    x_features_scaled: np.ndarray,
+    device: str | None = None,
+) -> np.ndarray | None:
     if ae_model is None:
         return None
-    errors = reconstruction_per_window(ae_model, x_features_scaled)
+    errors = reconstruction_per_window(ae_model, x_features_scaled, device=device)
     if errors is None:
         return None
     return np.asarray(errors, dtype=float)

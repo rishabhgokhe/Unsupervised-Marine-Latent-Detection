@@ -86,6 +86,32 @@ def main() -> None:
     st.markdown(
         """
         <style>
+        section[data-testid="stSidebar"] .block-container {
+            padding: 0.6rem 0.8rem 0.9rem 0.8rem;
+        }
+        section[data-testid="stSidebar"] hr {
+            margin: 0.5rem 0 0.7rem 0;
+        }
+        section[data-testid="stSidebar"] [data-testid="stMarkdown"] p {
+            margin-bottom: 0.35rem;
+        }
+        section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p {
+            margin-bottom: 0.4rem;
+        }
+        section[data-testid="stSidebar"] [data-testid="stExpander"] {
+            border-radius: 10px;
+        }
+        section[data-testid="stSidebar"] label {
+            font-weight: 600;
+        }
+        section[data-testid="stSidebar"] .stRadio,
+        section[data-testid="stSidebar"] .stSlider {
+            padding-top: 0.1rem;
+        }
+        section[data-testid="stSidebar"] .stTextInput,
+        section[data-testid="stSidebar"] .stToggle {
+            margin-bottom: 0.35rem;
+        }
         .hero {
             background: linear-gradient(120deg, #032b44, #0f4c5c 55%, #1d7874);
             border-radius: 14px;
@@ -95,6 +121,38 @@ def main() -> None:
         }
         .hero h1 { margin: 0 0 4px 0; font-size: 1.8rem; }
         .hero p { margin: 0; opacity: 0.92; }
+        .status-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 6px 0 10px 0;
+        }
+        .status-pill {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+        }
+        .pill-primary {
+            background: #e6f6ff;
+            color: #0b3b52;
+        }
+        .pill-muted {
+            background: #eef2f7;
+            color: #314155;
+        }
+        .pill-ok {
+            background: #e8f7ef;
+            color: #135c2b;
+            border-color: #c7ead4;
+        }
+        .pill-warn {
+            background: #fff2e5;
+            color: #7a3b00;
+            border-color: #ffd6ad;
+        }
         </style>
         <div class="hero">
             <h1>Hierarchical Latent State Segmentation of Marine Time-Series Data Using HMM</h1>
@@ -104,9 +162,18 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    st.sidebar.header("Deployment")
-    artifacts_dir = st.sidebar.text_input("Artifacts directory", value="artifacts/latest")
-    cfg_path = st.sidebar.text_input("Config path", value="configs/config.yml")
+    with st.sidebar:
+        st.markdown("**Unsupervised Marine Regime Intelligence**")
+        st.caption("Production-grade dashboard for latent regime discovery and operational insight.")
+        st.divider()
+        st.subheader("Deployment")
+        st.caption("Artifacts and runtime configuration")
+        artifacts_dir = st.text_input("Artifacts directory", value="artifacts/latest")
+        cfg_path = st.text_input("Config path", value="configs/config.yml")
+        st.divider()
+        st.subheader("Run Mode")
+        st.caption("Choose the inference workflow")
+        mode = st.radio("Processing mode", ["Offline", "Simulated Streaming"], horizontal=True)
 
     try:
         models = load_all_models(artifacts_dir)
@@ -116,62 +183,116 @@ def main() -> None:
         st.info("Required artifacts: feature_scaler.pkl and hmm.pkl. Optional for hierarchical mode: autoencoder_dense.pt, macro_mapping.pkl, dense_autoencoder_config.json.")
         return
 
-    st.sidebar.subheader("Model Info")
-    inf_cfg = models.inference_config or {}
-    dense_cfg = inf_cfg.get("dense_autoencoder") or {}
-    st.sidebar.write(f"Inference mode: {models.mode}")
-    st.sidebar.write(f"Dense AE latent dim: {dense_cfg.get('latent_dim', 'n/a')}")
-    st.sidebar.write(f"HMM states: {getattr(models.hmm_model, 'n_components', 'n/a')}")
-    macro_count = len(set(models.macro_mapping.values())) if models.macro_mapping else int(getattr(models.hmm_model, "n_components", 0))
-    st.sidebar.write(f"Macro regimes: {macro_count}")
-    if models.mode == "hmm_only":
-        st.sidebar.warning("Fallback mode active: macro states mirror micro states.")
+    device_label = "GPU (cuda)" if str(models.device).lower().startswith("cuda") else f"CPU ({models.device})"
+    st.markdown(
+        f"""
+        <div class="status-row">
+            <span class="status-pill pill-primary">Device: {device_label}</span>
+            <span class="status-pill pill-muted">Mode: {models.mode}</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    mode = st.radio("Processing mode", ["Offline", "Simulated Streaming"], horizontal=True)
+    with st.sidebar:
+        st.divider()
+        st.subheader("Model Status")
+        st.caption("Auto-detected from artifacts")
+        inf_cfg = models.inference_config or {}
+        dense_cfg = inf_cfg.get("dense_autoencoder") or {}
+        st.markdown(f"**Inference mode:** {models.mode}")
+        st.markdown(f"**Torch device:** {models.device}")
+        st.markdown(f"**Dense AE latent dim:** {dense_cfg.get('latent_dim', 'n/a')}")
+        st.markdown(f"**HMM states:** {getattr(models.hmm_model, 'n_components', 'n/a')}")
+        macro_count = (
+            len(set(models.macro_mapping.values()))
+            if models.macro_mapping
+            else int(getattr(models.hmm_model, "n_components", 0))
+        )
+        st.markdown(f"**Macro regimes:** {macro_count}")
+        if models.mode == "hmm_only":
+            st.warning("Fallback mode active: macro states mirror micro states.")
+        st.divider()
+        st.subheader("Artifacts Health")
+        art_dir = Path(artifacts_dir)
+        required = ["feature_scaler.pkl", "hmm.pkl"]
+        optional = ["autoencoder_dense.pt", "macro_mapping.pkl", "dense_autoencoder_config.json"]
+        for name in required:
+            exists = (art_dir / name).exists()
+            pill_class = "pill-ok" if exists else "pill-warn"
+            status = "OK" if exists else "MISSING"
+            st.markdown(
+                f'<span class="status-pill {pill_class}">{name}: {status}</span>',
+                unsafe_allow_html=True,
+            )
+        st.caption("Optional for hierarchical mode")
+        for name in optional:
+            exists = (art_dir / name).exists()
+            pill_class = "pill-ok" if exists else "pill-warn"
+            status = "OK" if exists else "MISSING"
+            st.markdown(
+                f'<span class="status-pill {pill_class}">{name}: {status}</span>',
+                unsafe_allow_html=True,
+            )
 
     sample_path = Path("data/raw/merged final.parquet")
     uploaded = st.file_uploader("Upload Marine Dataset", type=["csv", "parquet"])
     use_sample = st.toggle("Use default NOAA sample dataset (data/raw/merged final.parquet)", value=(uploaded is None))
 
-    st.sidebar.subheader("Data Controls")
-    max_rows = st.sidebar.slider(
-        "Row cap (max rows to process)",
-        min_value=50_000,
-        max_value=1_000_000,
-        value=300_000,
-        step=50_000,
-    )
-    use_last_rows = st.sidebar.toggle("Use last N rows (recommended)", value=True)
-    st.sidebar.caption("For CSV uploads, using last N rows may be slower because the full file must be read.")
+    with st.sidebar:
+        st.divider()
+        st.subheader("Data Controls")
+        st.caption("Tuning for performance and latency")
+        max_rows = st.slider(
+            "Row cap (max rows to process)",
+            min_value=50_000,
+            max_value=1_000_000,
+            value=300_000,
+            step=50_000,
+        )
+        use_last_rows = st.toggle("Use last N rows (recommended)", value=True)
+        st.caption("For CSV uploads, using last N rows may be slower because the full file must be read.")
 
     inferred_numeric = list(inf_cfg.get("numeric_columns", cfg.data.numeric_columns))
     inferred_directional = list(inf_cfg.get("directional_columns", cfg.data.directional_columns))
     needed_columns = [cfg.data.station_col, cfg.data.timestamp_col, *inferred_numeric, *inferred_directional]
 
-    df = _load_input_df(
-        uploaded,
-        sample_path if use_sample else Path("__missing__"),
-        columns=needed_columns,
-        row_cap=max_rows,
-        use_last_rows=use_last_rows,
-    )
+    spinner_text = f"Loading + processing dataset on {device_label}..."
+    if uploaded is not None:
+        load_hint = "CSV detected (parsing may be slower)." if uploaded.name.lower().endswith(".csv") else "Parquet detected (fast load)."
+    elif use_sample:
+        load_hint = "Using sample Parquet dataset (fast load)."
+    else:
+        load_hint = "Awaiting dataset selection."
+    st.caption(load_hint)
+    with st.spinner(spinner_text):
+        df = _load_input_df(
+            uploaded,
+            sample_path if use_sample else Path("__missing__"),
+            columns=needed_columns,
+            row_cap=max_rows,
+            use_last_rows=use_last_rows,
+        )
     if df is None:
         st.info("Upload a CSV or enable the default NOAA sample toggle.")
         return
 
     df = normalize_input_columns(df, cfg.data.station_col, cfg.data.timestamp_col)
-    st.success("Dataset loaded successfully")
+    st.success(f"Dataset loaded successfully. Device: {device_label}")
     st.dataframe(df.head(10), width="stretch")
 
     try:
-        prep = preprocess_input(df, cfg=cfg, scaler=models.scaler, inference_config=models.inference_config)
-        latent, micro_states, macro_states = run_inference(
-            prep.x_scaled,
-            ae_model=models.ae_model,
-            hmm_model=models.hmm_model,
-            macro_mapping=models.macro_mapping,
-        )
-        reconstruction_errors = compute_reconstruction_errors(models.ae_model, prep.x_scaled)
+        with st.spinner(f"Preprocessing features on {device_label}..."):
+            prep = preprocess_input(df, cfg=cfg, scaler=models.scaler, inference_config=models.inference_config)
+        with st.spinner(f"Running inference on {device_label}..."):
+            latent, micro_states, macro_states = run_inference(
+                prep.x_scaled,
+                ae_model=models.ae_model,
+                hmm_model=models.hmm_model,
+                macro_mapping=models.macro_mapping,
+                device=models.device,
+            )
+            reconstruction_errors = compute_reconstruction_errors(models.ae_model, prep.x_scaled, device=models.device)
     except Exception as exc:
         st.error(f"Inference failed: {exc}")
         st.exception(exc)

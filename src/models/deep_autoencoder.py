@@ -52,7 +52,9 @@ def run_lstm_autoencoder_segmentation(
     if len(x_seq) < max(16, seq_len * 2):
         return None
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    from src.models.torch_device import resolve_torch_device
+
+    device = resolve_torch_device(None)
 
     class LSTMAE(nn.Module):
         def __init__(self, input_dim: int, hidden: int, latent: int) -> None:
@@ -101,7 +103,7 @@ def run_lstm_autoencoder_segmentation(
         final_loss = epoch_loss / max(count, 1)
 
     model.eval()
-    with torch.no_grad():
+    with torch.inference_mode():
         emb = model.encode(torch.from_numpy(x_seq).to(device)).cpu().numpy()
 
     best_k = candidate_states[0]

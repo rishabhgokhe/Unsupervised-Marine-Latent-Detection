@@ -27,6 +27,7 @@ def train_autoencoder(
     lr: float = 0.001,
     random_state: int = 42,
     verbose: bool = True,
+    device: str | None = None,
 ) -> tuple[Any, float] | tuple[None, None]:
     try:
         import torch
@@ -38,10 +39,12 @@ def train_autoencoder(
     if len(X) < 32:
         return None, None
 
+    from src.models.torch_device import resolve_torch_device
+
     torch.manual_seed(random_state)
     x_np = X.astype(np.float32)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = resolve_torch_device(device)
     model = model.to(device)
 
     dataset = TensorDataset(torch.tensor(x_np, dtype=torch.float32))
@@ -71,53 +74,59 @@ def train_autoencoder(
     return model, float(final_train_loss)
 
 
-def get_latent_embeddings(model: Any, X: np.ndarray) -> Optional[np.ndarray]:
+def get_latent_embeddings(model: Any, X: np.ndarray, device: str | None = None) -> Optional[np.ndarray]:
     try:
         import torch
     except Exception:
         return None
 
+    from src.models.torch_device import resolve_torch_device
+
     x_np = X.astype(np.float32)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = resolve_torch_device(device)
     model.eval()
     model = model.to(device)
 
-    with torch.no_grad():
+    with torch.inference_mode():
         x_tensor = torch.tensor(x_np, dtype=torch.float32).to(device)
         _, latent = model(x_tensor)
     return latent.cpu().numpy()
 
 
-def reconstruction_error(model: Any, X: np.ndarray) -> Optional[float]:
+def reconstruction_error(model: Any, X: np.ndarray, device: str | None = None) -> Optional[float]:
     try:
         import torch
     except Exception:
         return None
 
+    from src.models.torch_device import resolve_torch_device
+
     x_np = X.astype(np.float32)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = resolve_torch_device(device)
     model.eval()
     model = model.to(device)
 
-    with torch.no_grad():
+    with torch.inference_mode():
         x_tensor = torch.tensor(x_np, dtype=torch.float32).to(device)
         recon, _ = model(x_tensor)
         mse = ((recon - x_tensor) ** 2).mean().item()
     return float(mse)
 
 
-def reconstruction_per_window(model: Any, X: np.ndarray) -> Optional[np.ndarray]:
+def reconstruction_per_window(model: Any, X: np.ndarray, device: str | None = None) -> Optional[np.ndarray]:
     try:
         import torch
     except Exception:
         return None
 
+    from src.models.torch_device import resolve_torch_device
+
     x_np = X.astype(np.float32)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = resolve_torch_device(device)
     model.eval()
     model = model.to(device)
 
-    with torch.no_grad():
+    with torch.inference_mode():
         x_tensor = torch.tensor(x_np, dtype=torch.float32).to(device)
         recon, _ = model(x_tensor)
         per_window = ((recon - x_tensor) ** 2).mean(dim=1).cpu().numpy()
@@ -154,6 +163,7 @@ def train_dense_autoencoder(
     batch_size: int = 128,
     lr: float = 0.001,
     random_state: int = 42,
+    device: str | None = None,
 ) -> Optional[DenseAEOutput]:
     try:
         from src.models.autoencoder_dense import DenseAutoencoder
@@ -169,13 +179,14 @@ def train_dense_autoencoder(
         lr=lr,
         random_state=random_state,
         verbose=False,
+        device=device,
     )
     if trained_model is None or final_train_loss is None:
         return None
 
-    latent_np = get_latent_embeddings(trained_model, X)
-    reconstruction_mse = reconstruction_error(trained_model, X)
-    reconstruction_errors = reconstruction_per_window(trained_model, X)
+    latent_np = get_latent_embeddings(trained_model, X, device=device)
+    reconstruction_mse = reconstruction_error(trained_model, X, device=device)
+    reconstruction_errors = reconstruction_per_window(trained_model, X, device=device)
     if latent_np is None or reconstruction_mse is None or reconstruction_errors is None:
         return None
 

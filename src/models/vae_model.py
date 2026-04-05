@@ -39,7 +39,9 @@ def run_vae_ablation(
     if len(x_np) < 16:
         return None
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    from src.models.torch_device import resolve_torch_device
+
+    device = resolve_torch_device(None)
 
     class VAE(nn.Module):
         def __init__(self, input_dim: int, hidden: int, latent: int) -> None:
@@ -90,7 +92,7 @@ def run_vae_ablation(
         final_kl = total_kl / max(count, 1)
 
     model.eval()
-    with torch.no_grad():
+    with torch.inference_mode():
         x_t = torch.from_numpy(x_np).to(device)
         mu, _ = model.encode(x_t)
         emb = mu.cpu().numpy()

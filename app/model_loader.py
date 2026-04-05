@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Optional
@@ -18,6 +19,7 @@ class InferenceModels:
     macro_mapping: Optional[Dict[int, int]]
     inference_config: Dict
     mode: str
+    device: str
 
 
 def _load_json(path: Path) -> Dict:
@@ -41,6 +43,7 @@ def load_models(artifacts_dir: str | Path) -> InferenceModels:
     hmm_model = joblib.load(art / "hmm.pkl")
     inference_cfg = _load_json(art / "inference_config.json")
     dense_cfg = _load_json(art / "dense_autoencoder_config.json")
+    device_pref = str(inference_cfg.get("device") or os.getenv("UMDL_DEVICE", "auto"))
 
     dense_pt = art / "autoencoder_dense.pt"
     macro_pkl = art / "macro_mapping.pkl"
@@ -54,6 +57,7 @@ def load_models(artifacts_dir: str | Path) -> InferenceModels:
             macro_mapping=None,
             inference_config=inference_cfg,
             mode="hmm_only",
+            device=device_pref,
         )
 
     try:
@@ -76,6 +80,14 @@ def load_models(artifacts_dir: str | Path) -> InferenceModels:
     ae_model.load_state_dict(state)
     ae_model.eval()
 
+    try:
+        from src.models.torch_device import resolve_torch_device
+
+        torch_device = resolve_torch_device(device_pref)
+        ae_model = ae_model.to(torch_device)
+    except Exception:
+        device_pref = "cpu"
+
     return InferenceModels(
         scaler=scaler,
         ae_model=ae_model,
@@ -83,4 +95,5 @@ def load_models(artifacts_dir: str | Path) -> InferenceModels:
         macro_mapping=macro_mapping,
         inference_config=inference_cfg,
         mode="dense_hierarchical",
+        device=device_pref,
     )

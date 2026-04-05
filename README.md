@@ -67,6 +67,18 @@ For deep model support:
 pip install -r requirements-deep.txt
 ```
 
+## GPU Acceleration (PyTorch)
+
+Dense autoencoder, VAE, and LSTM AE components use GPU automatically when a CUDA-enabled PyTorch build is available.
+
+You can force a device selection by setting:
+
+```bash
+export UMDL_DEVICE=auto   # auto|cuda|cpu
+```
+
+If `UMDL_DEVICE` is unset, the default is `auto` (CUDA if available, otherwise CPU).
+
 ## Configuration
 
 Main config: `configs/config.yml`
