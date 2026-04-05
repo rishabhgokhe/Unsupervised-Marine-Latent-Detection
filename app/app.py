@@ -162,10 +162,15 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
+    if "page" not in st.session_state:
+        st.session_state.page = "home"
+
     with st.sidebar:
         st.markdown("**Unsupervised Marine Regime Intelligence**")
         st.caption("Production-grade dashboard for latent regime discovery and operational insight.")
         st.divider()
+        if st.button("Project Docs", use_container_width=True):
+            st.session_state.page = "docs"
         st.subheader("Deployment")
         st.caption("Artifacts and runtime configuration")
         artifacts_dir = st.text_input("Artifacts directory", value="artifacts/latest")
@@ -181,6 +186,18 @@ def main() -> None:
     except Exception as exc:
         st.error(f"Failed to load models/config: {exc}")
         st.info("Required artifacts: feature_scaler.pkl and hmm.pkl. Optional for hierarchical mode: autoencoder_dense.pt, macro_mapping.pkl, dense_autoencoder_config.json.")
+        return
+
+    if st.session_state.page == "docs":
+        st.markdown("## Project Docs")
+        if st.button("Back to Home", use_container_width=True):
+            st.session_state.page = "home"
+            st.rerun()
+        readme_path = Path("README.md")
+        if readme_path.exists():
+            st.markdown(readme_path.read_text(encoding="utf-8"))
+        else:
+            st.info("README.md not found in project root.")
         return
 
     device_label = "GPU (cuda)" if str(models.device).lower().startswith("cuda") else f"CPU ({models.device})"
