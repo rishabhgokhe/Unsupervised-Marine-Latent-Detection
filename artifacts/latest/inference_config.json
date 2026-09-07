@@ -55,5 +55,12 @@
     ],
     "multi_stride": 3
   },
-  "dense_autoencoder": null
+  "dense_autoencoder": {
+    "input_dim": 288,
+    "latent_dim": 32,
+    "epochs": 40,
+    "batch_size": 128,
+    "learning_rate": 0.001,
+    "random_state": 42
+  }
 }

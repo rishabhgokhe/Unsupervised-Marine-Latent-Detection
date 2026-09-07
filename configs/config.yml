@@ -1,5 +1,5 @@
 data:
-  input_path: data/raw/combined.parquet
+  input_path: data/data/currentdataset.parquet
   timestamp_col: DATE
   station_col: STATION
   numeric_columns:
@@ -48,7 +48,7 @@ evaluation:
   boundary_tolerance_steps: 2
 
 app:
-  app_title: Marine Regime Discovery Dashboard
+  app_title: Marine Time-Series Segmentation Using HMM
   author: Rishabh Gokhe
 
 tracking:

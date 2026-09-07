@@ -75,6 +75,11 @@ def load_models(artifacts_dir: str | Path) -> InferenceModels:
     if input_dim <= 0:
         raise ValueError("dense_autoencoder_config.json missing valid input_dim")
 
+    if getattr(hmm_model, "n_features", None) != latent_dim:
+        latent_hmm_pt = art / "hmm_latent.pkl"
+        if latent_hmm_pt.exists():
+            hmm_model = joblib.load(latent_hmm_pt)
+
     ae_model = DenseAutoencoder(input_dim=input_dim, latent_dim=latent_dim)
     state = torch.load(art / "autoencoder_dense.pt", map_location="cpu")
     ae_model.load_state_dict(state)

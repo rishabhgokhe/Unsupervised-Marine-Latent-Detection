@@ -66,8 +66,24 @@ def build_regime_notes(df: pd.DataFrame) -> pd.DataFrame:
     note_rows = []
     for rid, row in stats.iterrows():
         hints = []
-        for col in feature_cols[:3]:
-            hints.append(f"{col}: {row[col]:.2f}")
+        for col in feature_cols[:4]:
+            val = float(row[col])
+            # Scale NOAA tenths if applicable for intuitive reading
+            if "SEA_LVL_PRES" in col and val > 2000.0:
+                val = val / 10.0
+                hints.append(f"Pressure: {val:.1f} hPa")
+            elif "WIND_SPEED" in col and val > 30.0:
+                val = val / 10.0
+                hints.append(f"Wind: {val:.1f} m/s")
+            elif "AIR_TEMP" in col and val > 50.0:
+                val = val / 10.0
+                hints.append(f"Air Temp: {val:.1f} °C")
+            elif "WAVE_HGT" in col:
+                hints.append(f"Wave: {val:.2f} m")
+            else:
+                short_name = col.split("_s")[0] if "_s" in col else col
+                hints.append(f"{short_name}: {val:.2f}")
+
         note_rows.append(
             {
                 "macro_state": int(rid),
@@ -84,27 +100,62 @@ def first_mean_col(df: pd.DataFrame, prefix: str) -> str | None:
     return sorted(cols)[0] if cols else None
 
 
+def scale_telemetry_val(val: float | int | None, param_type: str, col_max: float | None = None) -> float:
+    if val is None or not np.isfinite(val):
+        return 0.0
+    v = float(val)
+    if param_type == "wind":
+        return v / 10.0 if (col_max is not None and col_max > 25.0) or v > 20.0 else v
+    if param_type == "wave":
+        return v / 10.0 if (col_max is not None and col_max > 12.0) or v > 10.0 else v
+    if param_type == "pressure":
+        return v / 10.0 if v > 2000.0 else v
+    return v
+
+
 def risk_snapshot(df: pd.DataFrame) -> tuple[str, str]:
     wave_col = first_mean_col(df, "WAVE_HGT")
     wind_col = first_mean_col(df, "WIND_SPEED")
-    if wave_col is None and wind_col is None:
-        return "Unknown", "No WAVE_HGT/WIND_SPEED mean features available."
+    pres_col = first_mean_col(df, "SEA_LVL_PRES")
+
+    if wave_col is None and wind_col is None and pres_col is None:
+        return "Unknown", "No environmental telemetry available."
 
     recent = df.tail(max(20, min(len(df), 120)))
     score = 0.0
     details = []
-    if wave_col is not None:
-        wave_val = float(recent[wave_col].mean())
-        score += wave_val
-        details.append(f"wave={wave_val:.2f}")
-    if wind_col is not None:
-        wind_val = float(recent[wind_col].mean())
-        score += wind_val / 15.0
-        details.append(f"wind={wind_val:.2f}")
 
-    if score >= 4.5:
-        return "High", "Rough/storm tendency in recent windows (" + ", ".join(details) + ")."
-    if score >= 2.5:
+    w_max = df[wind_col].max() if wind_col and wind_col in df.columns else 0.0
+    wv_max = df[wave_col].max() if wave_col and wave_col in df.columns else 0.0
+
+    if wind_col is not None and wind_col in recent.columns:
+        valid_wind = recent[recent[wind_col] > 0][wind_col]
+        raw_wind = float(valid_wind.mean()) if not valid_wind.empty else 0.0
+        wind_display = scale_telemetry_val(raw_wind, "wind", w_max)
+        w_sev = float(np.clip(wind_display / 18.0, 0.0, 1.0) ** 1.2)
+        score += w_sev * 1.5
+        details.append(f"wind={wind_display:.1f} m/s")
+
+    if wave_col is not None and wave_col in recent.columns and recent[wave_col].max() > 0.05:
+        valid_wave = recent[recent[wave_col] > 0][wave_col]
+        wave_val = float(valid_wave.mean()) if not valid_wave.empty else 0.0
+        wave_display = scale_telemetry_val(wave_val, "wave", wv_max)
+        wv_sev = float(np.clip(wave_display / 3.5, 0.0, 1.0))
+        score += wv_sev * 1.5
+        details.append(f"wave={wave_display:.1f} m")
+
+    if pres_col is not None and pres_col in recent.columns:
+        valid_pres = recent[recent[pres_col] > 5000][pres_col]
+        if not valid_pres.empty:
+            raw_pres = float(valid_pres.mean())
+            pres_display = scale_telemetry_val(raw_pres, "pressure")
+            if pres_display < 1008.0:
+                score += float(np.clip((1008.0 - pres_display) / 20.0, 0.0, 1.0))
+                details.append(f"pres={pres_display:.1f} hPa")
+
+    if score >= 1.5:
+        return "High", "Rough/storm conditions in recent windows (" + ", ".join(details) + ")."
+    if score >= 0.7:
         return "Medium", "Moderate marine variability (" + ", ".join(details) + ")."
     return "Low", "Relatively calm marine behavior (" + ", ".join(details) + ")."
 
@@ -121,33 +172,39 @@ def _normalize_score(series: pd.Series) -> pd.Series:
 def macro_severity_map(df: pd.DataFrame) -> pd.DataFrame:
     wave_col = first_mean_col(df, "WAVE_HGT")
     wind_col = first_mean_col(df, "WIND_SPEED")
-    if wave_col is None and wind_col is None:
+    pres_col = first_mean_col(df, "SEA_LVL_PRES")
+    if wave_col is None and wind_col is None and pres_col is None:
         return pd.DataFrame()
 
-    grp = df.groupby("macro_state")
-    summary = pd.DataFrame(index=grp.size().index)
-    if wave_col is not None:
-        summary["wave_mean"] = grp[wave_col].mean()
-    if wind_col is not None:
-        summary["wind_mean"] = grp[wind_col].mean()
+    w_max = df[wind_col].max() if wind_col and wind_col in df.columns else 0.0
+    wv_max = df[wave_col].max() if wave_col and wave_col in df.columns else 0.0
 
-    score = pd.Series(0.0, index=summary.index)
-    if "wave_mean" in summary.columns:
-        score += 0.7 * _normalize_score(summary["wave_mean"])
-    if "wind_mean" in summary.columns:
-        score += 0.3 * _normalize_score(summary["wind_mean"])
-    summary["severity_score"] = score
+    macro_states = sorted(int(v) for v in df["macro_state"].dropna().unique())
+    macro_rows = []
+    for rid in macro_states:
+        sub = df[df["macro_state"] == rid]
+        w = scale_telemetry_val(sub[wind_col].mean(), "wind", w_max) if wind_col and wind_col in sub.columns else 0.0
+        wv = scale_telemetry_val(sub[wave_col].mean(), "wave", wv_max) if wave_col and wave_col in sub.columns else 0.0
+        p_valid = sub[sub[pres_col] > 5000][pres_col] if pres_col and pres_col in sub.columns else pd.Series(dtype=float)
+        p = scale_telemetry_val(p_valid.mean(), "pressure") if not p_valid.empty else 1013.25
 
-    def _level(val: float) -> str:
-        if val >= 0.66:
-            return "High"
-        if val >= 0.33:
-            return "Medium"
-        return "Low"
+        w_sev = float(np.clip(w / 18.0, 0.0, 1.0) ** 1.2) if w > 0 else 0.0
+        wv_sev = float(np.clip(wv / 4.0, 0.0, 1.0)) if wv > 0.05 else 0.0
+        p_sev = float(np.clip((1008.0 - p) / 25.0, 0.0, 1.0)) if p < 1008.0 else 0.0
 
-    summary["severity_level"] = summary["severity_score"].apply(_level)
-    summary = summary.reset_index().rename(columns={"index": "macro_state"})
-    return summary.sort_values("severity_score", ascending=False)
+        score = float(np.clip(0.55 * w_sev + 0.35 * wv_sev + 0.10 * p_sev, 0.0, 1.0))
+        level = "High" if score >= 0.60 else ("Medium" if score >= 0.30 else "Low")
+        macro_rows.append({
+            "macro_state": int(rid),
+            "wind_mean": round(w, 2),
+            "wave_mean": round(wv, 2),
+            "pres_mean": round(p, 1),
+            "severity_score": round(score, 3),
+            "severity_level": level,
+        })
+
+    res = pd.DataFrame(macro_rows)
+    return res.sort_values("severity_score", ascending=False).reset_index(drop=True)
 
 
 def next_macro_probabilities(
@@ -187,25 +244,39 @@ def infer_macro_names(df: pd.DataFrame) -> dict[int, str]:
     wind_col = first_mean_col(df, "WIND_SPEED")
     pres_col = first_mean_col(df, "SEA_LVL_PRES")
 
-    grp = df.groupby("macro_state")
-    summary = pd.DataFrame(index=macro_ids)
-    if wave_col is not None:
-        summary["wave"] = grp[wave_col].mean()
-    if wind_col is not None:
-        summary["wind"] = grp[wind_col].mean()
-    if pres_col is not None:
-        summary["pres"] = grp[pres_col].mean()
+    w_max = df[wind_col].max() if wind_col and wind_col in df.columns else 0.0
+    wv_max = df[wave_col].max() if wave_col and wave_col in df.columns else 0.0
 
     names: dict[int, str] = {}
-    for rid, row in summary.iterrows():
-        label = f"Regime {int(rid)}"
-        if "wave" in row and row["wave"] == summary["wave"].max():
-            label = "Storm-like"
-        elif "wind" in row and row["wind"] == summary["wind"].max():
-            label = "Windy"
-        elif "pres" in row and row["pres"] == summary["pres"].min():
-            label = "Low-pressure"
-        names[int(rid)] = label
+    for rid in macro_ids:
+        sub = df[df["macro_state"] == rid]
+        w = scale_telemetry_val(sub[wind_col].mean(), "wind", w_max) if wind_col and wind_col in sub.columns else 0.0
+        wv = scale_telemetry_val(sub[wave_col].mean(), "wave", wv_max) if wave_col and wave_col in sub.columns else 0.0
+        p_valid = sub[sub[pres_col] > 5000][pres_col] if pres_col and pres_col in sub.columns else pd.Series(dtype=float)
+        p = scale_telemetry_val(p_valid.mean(), "pressure") if not p_valid.empty else 1013.25
+
+        if w >= 14.0 or wv >= 3.0:
+            names[rid] = "Storm / Rough Sea"
+        elif w >= 7.0 or wv >= 1.5:
+            names[rid] = "Moderate / Swell"
+        elif p < 1005.0 and p > 850.0:
+            names[rid] = "Low-Pressure Front"
+        elif w <= 0.2 and wv <= 0.05 and p >= 1020.0:
+            names[rid] = "Calm / High-Pressure"
+        elif w <= 0.2 and wv <= 0.05:
+            names[rid] = "Calm / Sparse Telemetry"
+        else:
+            names[rid] = "Calm / Fair Sea"
+
+    counts = {}
+    for rid, name in names.items():
+        counts[name] = counts.get(name, 0) + 1
+    if any(c > 1 for c in counts.values()):
+        for rid in macro_ids:
+            nm = names[rid]
+            if counts[nm] > 1:
+                names[rid] = f"{nm} (Regime {rid})"
+
     return names
 
 
@@ -220,14 +291,16 @@ def station_early_warning(
 
     wave_col = first_mean_col(df, "WAVE_HGT")
     wind_col = first_mean_col(df, "WIND_SPEED")
-    if wave_col is None and wind_col is None:
+    pres_col = first_mean_col(df, "SEA_LVL_PRES")
+    if wave_col is None and wind_col is None and pres_col is None:
         return pd.DataFrame()
 
     severity = macro_severity_map(df)
     if severity.empty:
         return pd.DataFrame()
     severity_map = severity.set_index("macro_state")
-    high_macros = set(severity_map[severity_map["severity_level"] == "High"].index.tolist())
+    high_macros = set(severity[severity["severity_level"] == "High"]["macro_state"].tolist())
+    med_macros = set(severity[severity["severity_level"] == "Medium"]["macro_state"].tolist())
 
     if "end_time" not in df.columns:
         return pd.DataFrame()
@@ -236,50 +309,76 @@ def station_early_warning(
     latest = df.loc[idx].copy()
     latest["macro_state"] = latest["macro_state"].astype(int)
     latest["current_severity"] = latest["macro_state"].map(severity_map["severity_score"]).fillna(0.0)
-    latest["current_level"] = latest["macro_state"].map(severity_map["severity_level"]).fillna("Unknown")
+    latest["current_level"] = latest["macro_state"].map(severity_map["severity_level"]).fillna("Low")
 
-    prob_high_next = []
+    w_max = df[wind_col].max() if wind_col and wind_col in df.columns else 0.0
+    wv_max = df[wave_col].max() if wave_col and wave_col in df.columns else 0.0
+
+    recon_col = "reconstruction_error" if "reconstruction_error" in df.columns else None
+    recon_p90 = float(df[recon_col].quantile(0.90)) if recon_col else None
+
+    warn_rows = []
     for _, row in latest.iterrows():
+        st_id = row[station_col]
+        rid = int(row["macro_state"])
         cur_micro = int(row.get("micro_state", -1))
+
+        w = scale_telemetry_val(row.get(wind_col, 0.0), "wind", w_max) if wind_col else 0.0
+        wv = scale_telemetry_val(row.get(wave_col, 0.0), "wave", wv_max) if wave_col else 0.0
+        raw_p = row.get(pres_col, 0.0) if pres_col else 0.0
+        p = scale_telemetry_val(raw_p, "pressure") if raw_p > 5000.0 else 1013.25
+
+        w_sev = float(np.clip(w / 18.0, 0.0, 1.0) ** 1.2) if w > 0 else 0.0
+        wv_sev = float(np.clip(wv / 4.0, 0.0, 1.0)) if wv > 0.05 else 0.0
+        p_sev = float(np.clip((1008.0 - p) / 25.0, 0.0, 1.0)) if p < 1008.0 else 0.0
+        phys_sev = float(np.clip(0.60 * w_sev + 0.30 * wv_sev + 0.10 * p_sev, 0.0, 1.0))
+
         probs = next_macro_probabilities(hmm_model, cur_micro, macro_mapping)
-        if probs.empty or not high_macros:
-            prob_high_next.append(0.0)
-        else:
-            prob_high_next.append(float(probs[probs["macro_state"].isin(high_macros)]["probability"].sum()))
-    latest["prob_high_next"] = prob_high_next
+        p_high = 0.0
+        if not probs.empty and high_macros:
+            p_high = float(probs[probs["macro_state"].isin(high_macros)]["probability"].sum())
+        elif not probs.empty and med_macros:
+            p_high = 0.4 * float(probs[probs["macro_state"].isin(med_macros)]["probability"].sum())
 
-    latest["risk_score"] = 0.7 * latest["current_severity"] + 0.3 * latest["prob_high_next"]
+        anom = 0.0
+        if recon_col and recon_p90 and recon_p90 > 0:
+            r_val = float(row.get(recon_col, 0.0))
+            if r_val > recon_p90:
+                anom = float(np.clip((r_val - recon_p90) / (2.0 * recon_p90), 0.0, 0.20))
 
-    def _risk_level(val: float) -> str:
-        if val >= 0.66:
-            return "High"
-        if val >= 0.33:
-            return "Medium"
-        return "Low"
+        regime_sev = float(severity_map.loc[rid, "severity_score"]) if rid in severity_map.index else 0.0
+        risk = float(np.clip(0.50 * phys_sev + 0.25 * regime_sev + 0.20 * p_high + anom, 0.0, 1.0))
+        risk_lvl = "High" if risk >= 0.60 else ("Medium" if risk >= 0.30 else "Low")
 
-    latest["risk_level"] = latest["risk_score"].apply(_risk_level)
-    if wave_col is not None:
-        latest["wave_mean"] = latest[wave_col]
-    if wind_col is not None:
-        latest["wind_mean"] = latest[wind_col]
-
-    def _explain(row: pd.Series) -> str:
-        parts = [f"regime={int(row['macro_state'])} ({row['current_level']})"]
+        parts = [f"regime={rid} ({row['current_level']})"]
         if wave_col is not None:
-            parts.append(f"wave={float(row['wave_mean']):.2f}")
+            parts.append(f"wave={wv:.2f} m")
         if wind_col is not None:
-            parts.append(f"wind={float(row['wind_mean']):.2f}")
-        parts.append(f"next-high-prob={float(row['prob_high_next']):.2f}")
-        return " | ".join(parts)
+            parts.append(f"wind={w:.1f} m/s")
+        if p < 1008.0:
+            parts.append(f"pres={p:.1f} hPa")
+        parts.append(f"next-high-prob={p_high:.2f}")
 
-    latest["explanation"] = latest.apply(_explain, axis=1)
+        warn_rows.append({
+            station_col: st_id,
+            "end_time": row["end_time"],
+            "macro_state": rid,
+            "risk_level": risk_lvl,
+            "wave_mean": round(wv, 2),
+            "wind_mean": round(w, 2),
+            "risk_score": round(risk, 3),
+            "prob_high_next": round(p_high, 3),
+            "explanation": " | ".join(parts),
+        })
+
+    result_df = pd.DataFrame(warn_rows)
     keep_cols = [station_col, "end_time", "macro_state", "risk_level", "risk_score", "prob_high_next", "explanation"]
     if wave_col is not None:
         keep_cols.insert(4, "wave_mean")
     if wind_col is not None:
         keep_cols.insert(5 if wave_col is not None else 4, "wind_mean")
 
-    return latest[keep_cols].sort_values(["risk_score", "prob_high_next"], ascending=False)
+    return result_df[keep_cols].sort_values(["risk_score", "prob_high_next"], ascending=False).reset_index(drop=True)
 
 
 def monthly_regime_shares(
@@ -296,6 +395,8 @@ def monthly_regime_shares(
         empty = pd.DataFrame()
         return empty, empty, empty
 
+    st_col = station_col if station_col in tmp.columns else ("station" if "station" in tmp.columns else "STATION")
+
     counts = tmp.groupby(["month", "macro_state_name"]).size().reset_index(name="count")
     counts["share"] = counts["count"] / counts.groupby("month")["count"].transform("sum")
     share_pivot = counts.pivot(index="month", columns="macro_state_name", values="share").fillna(0.0)
@@ -305,11 +406,14 @@ def monthly_regime_shares(
     dominant = counts.loc[dominant_idx].copy()
     dominant = dominant.rename(columns={"share": "dominant_share"}).sort_values("month")
 
-    station_counts = tmp.groupby([station_col, "month", "macro_state_name"]).size().reset_index(name="count")
-    station_counts["share"] = station_counts["count"] / station_counts.groupby([station_col, "month"])["count"].transform("sum")
-    station_idx = station_counts.groupby([station_col, "month"])["share"].idxmax()
-    station_dominant = station_counts.loc[station_idx].copy().sort_values([station_col, "month"])
-    station_dominant = station_dominant.rename(columns={"share": "dominant_share"})
+    if st_col in tmp.columns:
+        station_counts = tmp.groupby([st_col, "month", "macro_state_name"]).size().reset_index(name="count")
+        station_counts["share"] = station_counts["count"] / station_counts.groupby([st_col, "month"])["count"].transform("sum")
+        station_idx = station_counts.groupby([st_col, "month"])["share"].idxmax()
+        station_dominant = station_counts.loc[station_idx].copy().sort_values([st_col, "month"])
+        station_dominant = station_dominant.rename(columns={"share": "dominant_share"})
+    else:
+        station_dominant = pd.DataFrame()
 
     return share_pivot, dominant, station_dominant
 
@@ -335,6 +439,8 @@ def operational_planning_summary(
         empty = pd.DataFrame()
         return empty, empty
 
+    st_col = station_col if station_col in tmp.columns else ("station" if "station" in tmp.columns else "STATION")
+
     tmp["severity_level"] = tmp["macro_state"].map(severity_map["severity_level"]).fillna("Unknown")
     tmp["severity_score"] = tmp["macro_state"].map(severity_map["severity_score"]).fillna(0.0)
 
@@ -355,23 +461,27 @@ def operational_planning_summary(
     overall["high_share"] = (overall["high_share"] * 100.0).round(2)
     overall["avg_severity"] = overall["avg_severity"].round(3)
 
-    by_station = (
-        tmp.groupby([station_col, "month"])
-        .agg(
-            low_share=("severity_level", lambda s: float((s == "Low").mean())),
-            high_share=("severity_level", lambda s: float((s == "High").mean())),
-            avg_severity=("severity_score", "mean"),
-            windows=("severity_level", "size"),
+    if st_col in tmp.columns:
+        by_station = (
+            tmp.groupby([st_col, "month"])
+            .agg(
+                low_share=("severity_level", lambda s: float((s == "Low").mean())),
+                high_share=("severity_level", lambda s: float((s == "High").mean())),
+                avg_severity=("severity_score", "mean"),
+                windows=("severity_level", "size"),
+            )
+            .reset_index()
         )
-        .reset_index()
-    )
-    by_station["low_share"] = (by_station["low_share"] * 100.0).round(2)
-    by_station["high_share"] = (by_station["high_share"] * 100.0).round(2)
-    by_station["avg_severity"] = by_station["avg_severity"].round(3)
-    by_station["recommended"] = (by_station["low_share"] >= 60.0) & (by_station["high_share"] <= 15.0)
-    by_station["recommended"] = by_station["recommended"].map({True: "Yes", False: "No"})
+        by_station["low_share"] = (by_station["low_share"] * 100.0).round(2)
+        by_station["high_share"] = (by_station["high_share"] * 100.0).round(2)
+        by_station["avg_severity"] = by_station["avg_severity"].round(3)
+        by_station["recommended"] = (by_station["low_share"] >= 60.0) & (by_station["high_share"] <= 15.0)
+        by_station["recommended"] = by_station["recommended"].map({True: "Yes", False: "No"})
+        by_station = by_station.sort_values([st_col, "month"])
+    else:
+        by_station = pd.DataFrame()
 
-    return overall.sort_values("month"), by_station.sort_values([station_col, "month"])
+    return overall.sort_values("month"), by_station
 
 
 def sensor_health_report(
@@ -383,37 +493,42 @@ def sensor_health_report(
     if df.empty:
         return pd.DataFrame()
 
+    st_col = station_col if station_col in df.columns else ("station" if "station" in df.columns else "STATION")
     cols = [c for c in numeric_columns if c in df.columns]
     if not cols:
         return pd.DataFrame()
 
     rows = []
-    for station, grp in df.groupby(station_col, sort=False):
+    for station, grp in df.groupby(st_col, sort=False):
         g = grp.sort_values(timestamp_col)
         total = len(g)
         if total == 0:
             continue
 
-        missing_rate = float(g[cols].isna().mean().mean())
+        # Only evaluate sensors installed on this buoy (having at least 1 reading)
+        active_cols = [c for c in cols if g[c].notna().sum() > 0]
+        if not active_cols:
+            active_cols = cols
+
+        missing_rate = float(g[active_cols].isna().mean().mean())
 
         flat_scores = []
-        for c in cols:
-            series = g[c].astype(float)
-            diffs = series.diff()
-            valid = diffs.notna().sum()
-            if valid == 0:
-                flat_scores.append(0.0)
-            else:
-                flat_scores.append(float((diffs == 0).sum() / valid))
+        for c in active_cols:
+            series = g[c].dropna().astype(float)
+            if len(series) < 2:
+                continue
+            diffs = series.diff().dropna()
+            flat_scores.append(float((diffs == 0).mean()))
         flatline_rate = float(np.mean(flat_scores)) if flat_scores else 0.0
 
         spike_scores = []
-        for c in cols:
-            series = g[c].astype(float)
+        for c in active_cols:
+            series = g[c].dropna().astype(float)
+            if len(series) < 5:
+                continue
             med = float(series.median())
             mad = float(np.median(np.abs(series - med)))
-            if not np.isfinite(mad) or mad <= 1e-9:
-                spike_scores.append(0.0)
+            if not np.isfinite(mad) or mad <= 1e-6:
                 continue
             z = np.abs(series - med) / (1.4826 * mad)
             spike_scores.append(float((z > 6.0).mean()))
@@ -433,14 +548,14 @@ def sensor_health_report(
 
         if score >= 0.75:
             status = "Good"
-        elif score >= 0.5:
+        elif score >= 0.50:
             status = "Warning"
         else:
             status = "Critical"
 
         rows.append(
             {
-                station_col: station,
+                st_col: station,
                 "rows": total,
                 "missing_rate": round(missing_rate, 4),
                 "flatline_rate": round(flatline_rate, 4),
@@ -455,3 +570,61 @@ def sensor_health_report(
     if out.empty:
         return out
     return out.sort_values(["health_score", "missing_rate"], ascending=[True, False])
+
+
+def compute_latent_pca(latent: np.ndarray) -> np.ndarray | None:
+    """Projects latent embeddings (N, D) into 2D via PCA for manifold visualization."""
+    if latent is None or len(latent) < 3 or latent.ndim != 2:
+        return None
+    try:
+        from sklearn.decomposition import PCA
+
+        pca = PCA(n_components=2, random_state=42)
+        return pca.fit_transform(latent)
+    except Exception:
+        return None
+
+
+def extract_station_coordinates(df: pd.DataFrame, station_col: str) -> pd.DataFrame:
+    """
+    Extracts geographical coordinates (latitude, longitude) for each station.
+    Matches case-insensitively on station_col, LATITUDE, LONGITUDE.
+    Returns a DataFrame with [station_col, 'latitude', 'longitude'].
+    """
+    if df.empty:
+        return pd.DataFrame(columns=[station_col, "latitude", "longitude"])
+
+    actual_st_col = None
+    for c in [station_col, "station", "STATION"]:
+        if c in df.columns:
+            actual_st_col = c
+            break
+    if actual_st_col is None:
+        col_map = {c.lower(): c for c in df.columns}
+        actual_st_col = col_map.get(station_col.lower())
+
+    if actual_st_col is None:
+        return pd.DataFrame(columns=[station_col, "latitude", "longitude"])
+
+    lat_col = next((c for c in df.columns if c.upper() in ["LATITUDE", "LAT"]), None)
+    lon_col = next((c for c in df.columns if c.upper() in ["LONGITUDE", "LON", "LONG"]), None)
+
+    if lat_col is None or lon_col is None:
+        return pd.DataFrame(columns=[station_col, "latitude", "longitude"])
+
+    valid = df.dropna(subset=[lat_col, lon_col])
+    if valid.empty:
+        return pd.DataFrame(columns=[station_col, "latitude", "longitude"])
+
+    geo = (
+        valid.groupby(actual_st_col)[[lat_col, lon_col]]
+        .last()
+        .reset_index()
+        .rename(columns={actual_st_col: station_col, lat_col: "latitude", lon_col: "longitude"})
+    )
+    geo["latitude"] = pd.to_numeric(geo["latitude"], errors="coerce")
+    geo["longitude"] = pd.to_numeric(geo["longitude"], errors="coerce")
+    geo = geo.dropna(subset=["latitude", "longitude"])
+    geo = geo[(geo["latitude"].between(-90.0, 90.0)) & (geo["longitude"].between(-180.0, 180.0))]
+    return geo.reset_index(drop=True)
+
