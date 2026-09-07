@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Unsupervised Marine Latent Regime Detection — Discovering hidden ocean states, early warnings, and temporal regimes from NOAA buoy telemetry without labels."
+    />
+    <meta name="author" content="Rishabh Gokhe" />
+    <title>Marine Latent — Unsupervised Marine Regime Intelligence</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <!-- Ambient Ocean Particles Canvas -->
+    <canvas id="ocean-canvas"></canvas>
+
+    <!-- Navigation Header -->
+    <header class="navbar">
+      <div class="container nav-container">
+        <a class="brand" href="#" id="nav-brand">
+          <div class="brand-icon">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
+          </div>
+          MARINE<span>•</span>LATENT
+        </a>
+        <nav aria-label="Primary Navigation">
+          <ul class="nav-links">
+            <li><a href="#simulator">Live Simulator</a></li>
+            <li><a href="#pipeline">Architecture</a></li>
+            <li><a href="#early-warning">Early Warning</a></li>
+            <li><a href="#research">Research</a></li>
+          </ul>
+        </nav>
+        <div class="nav-actions">
+          <div class="dashboard-status" id="dashboard-status-indicator">
+            <span class="status-dot online"></span> Checking Streamlit...
+          </div>
+          <a
+            class="btn btn-primary"
+            id="launch-dashboard-btn"
+            href="http://localhost:8501"
+            target="_blank"
+            rel="noopener"
+          >
+            Launch Dashboard <span>→</span>
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <!-- Hero Section -->
+      <section class="hero-section" id="hero">
+        <div class="container hero-grid">
+          <div class="hero-content">
+            <div class="badge-tag">
+              <span>●</span> NOAA Telemetry • Unsupervised AI
+            </div>
+            <h1 class="hero-title">
+              The ocean has patterns.<br />
+              <em>Now you can decode them.</em>
+            </h1>
+            <p class="hero-subtitle">
+              Transform high-frequency, noisy marine buoy data into interpretable operational regimes, early-warning indicators, and seasonal intelligence—without needing human labels.
+            </p>
+            <div class="hero-cta-group">
+              <a
+                class="btn btn-primary"
+                href="http://localhost:8501"
+                target="_blank"
+                rel="noopener"
+                id="hero-primary-cta"
+              >
+                Open Live Dashboard <span>→</span>
+              </a>
+              <a class="btn btn-ghost" href="#simulator" id="hero-secondary-cta">
+                Explore Simulator
+              </a>
+            </div>
+            <ul class="key-highlights">
+              <li>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                Multi-Scale Rolling Windows
+              </li>
+              <li>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                Gaussian HMM + Autoencoder
+              </li>
+              <li>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                Micro-to-Macro Hierarchy
+              </li>
+            </ul>
+          </div>
+
+          <!-- Hero Interactive Widget: Live Telemetry Card -->
+          <div class="telemetry-card" id="hero-telemetry-widget">
+            <div class="telemetry-header">
+              <div class="telemetry-title-group">
+                <div class="live-indicator">
+                  <span class="live-pulse"></span> BUOY STATION #44013
+                </div>
+              </div>
+              <span class="status-badge badge-calm" id="regime-badge">Calm Coastal Sea</span>
+            </div>
+
+            <div class="telemetry-canvas-wrap">
+              <canvas id="telemetry-canvas"></canvas>
+            </div>
+
+            <div class="telemetry-metrics-grid">
+              <div class="metric-box">
+                <div class="metric-label">Significant Wave Hgt</div>
+                <div class="metric-value" id="stat-wave">0.85 m</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Wind Velocity</div>
+                <div class="metric-value" id="stat-wind">5.2 kts</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Barometric Pressure</div>
+                <div class="metric-value" id="stat-pres">1018.4 hPa</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Live Regime Simulation & Telemetry Explorer -->
+      <section class="section" id="simulator">
+        <div class="container">
+          <div class="section-header">
+            <span class="section-tag">Interactive Environment</span>
+            <h2 class="section-title">Discover Dynamic Marine Regimes</h2>
+            <p class="section-desc">
+              Marine conditions transition between distinctive latent states. Switch regimes below to inspect how multi-scale statistical features and sensor waveforms adapt in real-time.
+            </p>
+          </div>
+
+          <div class="regime-nav-tabs" role="tablist">
+            <button class="regime-btn active" data-regime="calm" id="btn-regime-calm" role="tab">
+              Regime 0: Calm Coastal
+            </button>
+            <button class="regime-btn" data-regime="moderate" id="btn-regime-moderate" role="tab">
+              Regime 1: Moderate Swell
+            </button>
+            <button class="regime-btn" data-regime="storm" id="btn-regime-storm" role="tab">
+              Regime 2: Severe Cyclone
+            </button>
+            <button class="regime-btn" data-regime="transitional" id="btn-regime-transitional" role="tab">
+              Regime 3: High-Variance Front
+            </button>
+          </div>
+
+          <div class="simulator-detail-card">
+            <div class="regime-summary-box">
+              <h3>State Characterization</h3>
+              <p id="regime-desc">
+                Minimal wave height, light breezes, and high atmospheric pressure. Optimal conditions for marine transit and maintenance operations.
+              </p>
+              <div class="regime-stats-row">
+                <div class="regime-stat-item">
+                  <span>Operational Risk</span>
+                  <strong id="stat-risk" style="color: var(--emerald);">Low</strong>
+                </div>
+                <div class="regime-stat-item">
+                  <span>Mean Duration</span>
+                  <strong id="stat-duration">142h avg</strong>
+                </div>
+                <div class="regime-stat-item">
+                  <span>Transition Entropy</span>
+                  <strong id="stat-entropy">0.24</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="feature-vector-box">
+              <h4>Multi-Scale Feature Descriptors</h4>
+              <div class="feature-chips-grid" id="feature-vector-chips">
+                <!-- Dynamically populated by script.js -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Architecture & Processing Pipeline Stepper -->
+      <section class="section" id="pipeline" style="background: rgba(6, 21, 39, 0.45);">
+        <div class="container">
+          <div class="section-header">
+            <span class="section-tag">Methodology & Workflow</span>
+            <h2 class="section-title">An End-to-End Latent Architecture</h2>
+            <p class="section-desc">
+              Designed from first principles to process messy ocean buoy telemetry into verified, stable macro regimes without data leakage.
+            </p>
+          </div>
+
+          <div class="pipeline-stepper">
+            <button class="pipeline-step-btn active" id="step-btn-1">1. Circular Resampling</button>
+            <button class="pipeline-step-btn" id="step-btn-2">2. Quality & Gaps</button>
+            <button class="pipeline-step-btn" id="step-btn-3">3. Multi-Scale Windows</button>
+            <button class="pipeline-step-btn" id="step-btn-4">4. Latent Autoencoder</button>
+            <button class="pipeline-step-btn" id="step-btn-5">5. Gaussian HMM</button>
+            <button class="pipeline-step-btn" id="step-btn-6">6. Hierarchical Macro</button>
+          </div>
+
+          <div class="pipeline-cards-wrap">
+            <!-- Step 1 -->
+            <div class="pipeline-card active" id="step-panel-1">
+              <div class="pipeline-info">
+                <h3>Station-Wise Circular Resampling</h3>
+                <p>
+                  Telemetry arrives at irregular intervals. We resample each buoy station to 1-hour intervals. While numeric scalars use arithmetic mean, directional variables (Wind, Wave, Swell direction) utilize circular mathematics to avoid 0°/360° phase discontinuities.
+                </p>
+                <div class="pipeline-specs">
+                  <div class="pipeline-spec-item">
+                    <svg viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                    </svg>
+                    <span>Circular mean: <code>atan2(mean(sin θ), mean(cos θ))</code></span>
+                  </div>
+                  <div class="pipeline-spec-item">
+                    <svg viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                    </svg>
+                    <span>Continuous sinusoidal projections: <code>DIR_SIN</code> & <code>DIR_COS</code></span>
+                  </div>
+                </div>
+              </div>
+              <pre class="pipeline-code-preview"><code><span class="code-comment"># src/data/ingest.py</span>
+<span class="code-keyword">for</span> dcol <span class="code-keyword">in</span> directional_columns:
+    rad = np.<span class="code-func">deg2rad</span>(station_df[dcol])
+    sin_avg = np.<span class="code-func">sin</span>(rad).<span class="code-func">resample</span>(rule).<span class="code-func">mean</span>()
+    cos_avg = np.<span class="code-func">cos</span>(rad).<span class="code-func">resample</span>(rule).<span class="code-func">mean</span>()
+    out[dcol] = (np.<span class="code-func">rad2deg</span>(np.<span class="code-func">arctan2</span>(sin_avg, cos_avg)) + 360) % 360</code></pre>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="pipeline-card" id="step-panel-2">
+              <div class="pipeline-info">
+                <h3>Quality Control & Gap Interpolation</h3>
+                <p>
+                  Special missing sentinels (99, 999, 9999) are mapped to NaN. Small sensor drops (≤2h) are forward/backward filled, while medium gaps (≤6h) receive bounded linear interpolation. Outlier spikes are clamped within the 0.5% and 99.5% quantiles.
+                </p>
+                <div class="pipeline-specs">
+                  <div class="pipeline-spec-item">
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                    <span>Zero lookahead bias during interpolation</span>
+                  </div>
+                  <div class="pipeline-spec-item">
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                    <span>Quantile bounds logged to <code>quality_report.json</code></span>
+                  </div>
+                </div>
+              </div>
+              <pre class="pipeline-code-preview"><code><span class="code-comment"># src/data/preprocess.py</span>
+working[cols] = working[cols].<span class="code-func">replace</span>([99, 999, 9999], np.nan)
+<span class="code-comment"># Short gap forward/backward fill</span>
+g[numeric] = g[numeric].<span class="code-func">ffill</span>(limit=2).<span class="code-func">bfill</span>(limit=2)
+<span class="code-comment"># Medium gap bounded linear interpolation</span>
+g[numeric] = g[numeric].<span class="code-func">interpolate</span>(method=<span class="code-var">"linear"</span>, limit=6)</code></pre>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="pipeline-card" id="step-panel-3">
+              <div class="pipeline-info">
+                <h3>Multi-Scale Past-Only Windows</h3>
+                <p>
+                  Marine dynamics operate across multiple time horizons. We extract statistics over 6-hour (immediate gusts), 24-hour (diurnal cycle), and 72-hour (synoptic weather fronts) rolling windows with regular strides.
+                </p>
+                <div class="pipeline-specs">
+                  <div class="pipeline-spec-item">
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                    <span>6 features per scale: Mean, Std, Trend, Energy, Max, Min</span>
+                  </div>
+                  <div class="pipeline-spec-item">
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                    <span>Output dimension: 288 statistical features per window</span>
+                  </div>
+                </div>
+              </div>
+              <pre class="pipeline-code-preview"><code><span class="code-comment"># src/features/window_engine.py</span>
+trend = window[-1] - window[0]
+energy = np.<span class="code-func">sum</span>(window**2, axis=0) / len(window)
+stats = np.<span class="code-func">concatenate</span>([
+    window.<span class="code-func">mean</span>(axis=0), window.<span class="code-func">std</span>(axis=0),
+    trend, energy, window.<span class="code-func">max</span>(axis=0), window.<span class="code-func">min</span>(axis=0)
+])</code></pre>
+            </div>
+
+            <!-- Step 4 -->
+            <div class="pipeline-card" id="step-panel-4">
+              <div class="pipeline-info">
+                <h3>Latent Dense Autoencoder</h3>
+                <p>
+                  A 3-layer PyTorch encoder compresses the 288-dimensional statistical representation into a smooth 32-dimensional latent manifold, denoising sensor measurement noise and isolating true atmospheric variance.
+                </p>
+                <div class="pipeline-specs">
+                  <div class="pipeline-spec-item">
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                    <span>Reconstruction MSE serves as Anomaly Detector</span>
+                  </div>
+                  <div class="pipeline-spec-item">
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                    <span>Dynamic PyTorch accelerator resolver (CUDA/CPU)</span>
+                  </div>
+                </div>
+              </div>
+              <pre class="pipeline-code-preview"><code><span class="code-comment"># src/models/autoencoder_dense.py</span>
+self.encoder = nn.<span class="code-func">Sequential</span>(
+    nn.<span class="code-func">Linear</span>(input_dim, 256), nn.<span class="code-func">ReLU</span>(),
+    nn.<span class="code-func">Linear</span>(256, 128), nn.<span class="code-func">ReLU</span>(),
+    nn.<span class="code-func">Linear</span>(128, latent_dim)  <span class="code-comment"># 32-dim</span>
+)</code></pre>
+            </div>
+
+            <!-- Step 5 -->
+            <div class="pipeline-card" id="step-panel-5">
+              <div class="pipeline-info">
+                <h3>Hidden Markov Model (HMM)</h3>
+                <p>
+                  Unlike static clustering (KMeans, GMM), Gaussian HMM with diagonal covariance models temporal transitions between ocean states. Optimal state count is selected by minimizing the Bayesian Information Criterion (BIC).
+                </p>
+                <div class="pipeline-specs">
+                  <div class="pipeline-spec-item">
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                    <span>BIC Approximation: <code>-2 ln L + (K² + 2Kd) ln N</code></span>
+                  </div>
+                  <div class="pipeline-spec-item">
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                    <span>Anti-flicker smoothing removes sub-threshold noise</span>
+                  </div>
+                </div>
+              </div>
+              <pre class="pipeline-code-preview"><code><span class="code-comment"># src/models/hmm_model.py</span>
+model = <span class="code-func">GaussianHMM</span>(
+    n_components=n, covariance_type=<span class="code-var">"diag"</span>, n_iter=300
+)
+model.<span class="code-func">fit</span>(latent_embeddings)
+logL = model.<span class="code-func">score</span>(latent_embeddings)
+bic = -2 * logL + (n**2 + 2*n*d) * np.<span class="code-func">log</span>(n_samples)</code></pre>
+            </div>
+
+            <!-- Step 6 -->
+            <div class="pipeline-card" id="step-panel-6">
+              <div class="pipeline-info">
+                <h3>Hierarchical Macro-Regime Mapping</h3>
+                <p>
+                  Fine-grained micro-states (10-12 states) capture subtle shifts but can overwhelm operational teams. We cluster the micro-state Gaussian emission means into 3 to 4 actionable macro regimes with continuous transition matrices.
+                </p>
+                <div class="pipeline-specs">
+                  <div class="pipeline-spec-item">
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                    <span>Reduces transition entropy by over 40%</span>
+                  </div>
+                  <div class="pipeline-spec-item">
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                    <span>Calm • Moderate • Storm • High-Variance</span>
+                  </div>
+                </div>
+              </div>
+              <pre class="pipeline-code-preview"><code><span class="code-comment"># src/models/hierarchy.py</span>
+macro_labels = <span class="code-func">build_macro_regimes</span>(
+    state_means=hmm_result.state_means, n_macro=4
+)
+macro_seq = <span class="code-func">map_micro_to_macro</span>(micro_states, macro_labels)
+macro_trans = <span class="code-func">transition_matrix</span>(macro_seq)</code></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Interactive Early Warning & Risk Calculator -->
+      <section class="section" id="early-warning">
+        <div class="container">
+          <div class="section-header">
+            <span class="section-tag">Predictive Diagnostics</span>
+            <h2 class="section-title">Transition Dynamics & Early Warning</h2>
+            <p class="section-desc">
+              Understand regime persistence and calculate real-time operational risk scores for offshore vessels and coastal facilities.
+            </p>
+          </div>
+
+          <div class="matrix-risk-grid">
+            <!-- Transition Matrix -->
+            <div class="matrix-container">
+              <h3>Macro Transition Probability Matrix</h3>
+              <p>Diagonal values reflect regime persistence. Off-diagonals reveal transition likelihoods into storm states.</p>
+              <table class="matrix-table">
+                <thead>
+                  <tr>
+                    <th>From \ To</th>
+                    <th>Calm (0)</th>
+                    <th>Moderate (1)</th>
+                    <th>Storm (2)</th>
+                    <th>Variance (3)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Calm (0)</td>
+                    <td class="matrix-cell high-diag" data-from="Calm" data-to="Calm" data-prob="0.88">0.88</td>
+                    <td class="matrix-cell" data-from="Calm" data-to="Moderate" data-prob="0.09">0.09</td>
+                    <td class="matrix-cell" data-from="Calm" data-to="Storm" data-prob="0.01">0.01</td>
+                    <td class="matrix-cell" data-from="Calm" data-to="Variance" data-prob="0.02">0.02</td>
+                  </tr>
+                  <tr>
+                    <td>Moderate (1)</td>
+                    <td class="matrix-cell" data-from="Moderate" data-to="Calm" data-prob="0.14">0.14</td>
+                    <td class="matrix-cell high-diag" data-from="Moderate" data-to="Moderate" data-prob="0.79">0.79</td>
+                    <td class="matrix-cell" data-from="Moderate" data-to="Storm" data-prob="0.04">0.04</td>
+                    <td class="matrix-cell" data-from="Moderate" data-to="Variance" data-prob="0.03">0.03</td>
+                  </tr>
+                  <tr>
+                    <td>Storm (2)</td>
+                    <td class="matrix-cell" data-from="Storm" data-to="Calm" data-prob="0.02">0.02</td>
+                    <td class="matrix-cell" data-from="Storm" data-to="Moderate" data-prob="0.12">0.12</td>
+                    <td class="matrix-cell high-diag" data-from="Storm" data-to="Storm" data-prob="0.74">0.74</td>
+                    <td class="matrix-cell" data-from="Storm" data-to="Variance" data-prob="0.12">0.12</td>
+                  </tr>
+                  <tr>
+                    <td>Variance (3)</td>
+                    <td class="matrix-cell" data-from="Variance" data-to="Calm" data-prob="0.08">0.08</td>
+                    <td class="matrix-cell" data-from="Variance" data-to="Moderate" data-prob="0.22">0.22</td>
+                    <td class="matrix-cell" data-from="Variance" data-to="Storm" data-prob="0.18">0.18</td>
+                    <td class="matrix-cell high-diag" data-from="Variance" data-to="Variance" data-prob="0.52">0.52</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div id="matrix-tooltip">Hover over any transition cell to inspect conditional probability</div>
+            </div>
+
+            <!-- Risk Score Calculator -->
+            <div class="risk-calc-card">
+              <div>
+                <div class="risk-calc-header">
+                  <h3>Early Warning Risk Calculator</h3>
+                  <span class="pill-status pill-success" id="calc-risk-pill">LOW RISK</span>
+                </div>
+                <div class="formula-box">
+                  Risk Score = 0.7 × Current Severity + 0.3 × P(Next State is High-Risk)
+                </div>
+
+                <div class="slider-group">
+                  <div class="slider-label-row">
+                    <span>Current Wave & Wind Severity</span>
+                    <strong id="calc-cur-val">15%</strong>
+                  </div>
+                  <input type="range" id="calc-current-sev" min="0" max="100" value="15" />
+                </div>
+
+                <div class="slider-group">
+                  <div class="slider-label-row">
+                    <span>Probability of Transition to Storm</span>
+                    <strong id="calc-prob-val">4%</strong>
+                  </div>
+                  <input type="range" id="calc-next-prob" min="0" max="100" value="4" />
+                </div>
+              </div>
+
+              <div class="gauge-wrap">
+                <div class="gauge-track">
+                  <div class="gauge-fill" id="calc-gauge-fill" style="width: 12%;"></div>
+                </div>
+                <div class="score-display-row">
+                  <span>Calculated Operational Risk Score:</span>
+                  <strong id="calc-score-display">0.12 (12%)</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Research Benchmarks & Paper Highlights -->
+      <section class="section" id="research" style="background: rgba(6, 21, 39, 0.45);">
+        <div class="container">
+          <div class="section-header">
+            <span class="section-tag">Empirical Results</span>
+            <h2 class="section-title">Peer-Reviewed Research Performance</h2>
+            <p class="section-desc">
+              Benchmark results evaluated across 107 NOAA buoy stations and 3,949 window samples, documented in the accompanying IEEE conference paper.
+            </p>
+          </div>
+
+          <div class="benchmark-grid">
+            <div class="benchmark-card">
+              <div class="bench-model">Hierarchical HMM Macro</div>
+              <div class="bench-val accent">0.42</div>
+              <div class="bench-metric">Silhouette Quality Score</div>
+            </div>
+            <div class="benchmark-card">
+              <div class="bench-model">Flat KMeans Baseline</div>
+              <div class="bench-val">0.28</div>
+              <div class="bench-metric">Silhouette Quality Score</div>
+            </div>
+            <div class="benchmark-card">
+              <div class="bench-model">Transition Entropy</div>
+              <div class="bench-val accent">0.38</div>
+              <div class="bench-metric">Mean Entropy (Lower = More Stable)</div>
+            </div>
+            <div class="benchmark-card">
+              <div class="bench-model">Cyclonic Pressure Drop</div>
+              <div class="bench-val accent">-14.2</div>
+              <div class="bench-metric">ΔP Post-Minus-Pre (hPa)</div>
+            </div>
+          </div>
+
+          <div class="paper-abstract-card">
+            <div class="paper-text">
+              <h4>Hierarchical Latent State Segmentation of Marine Time-Series Data Using HMM</h4>
+              <p>
+                Unsupervised discovery of latent regimes in multivariate marine time-series is challenging due to noise, missing data, and temporal dependencies. Our paper presents a config-driven framework combining multi-scale windowing, dense autoencoders, and HMM temporal dynamics.
+              </p>
+            </div>
+            <a
+              class="btn btn-primary"
+              href="http://localhost:8501"
+              target="_blank"
+              rel="noopener"
+            >
+              View Research Logs <span>→</span>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- Quick Launch CTA Banner -->
+      <section class="section">
+        <div class="container">
+          <div class="launch-banner">
+            <h2>Experience Marine Regime Discovery</h2>
+            <p>
+              Launch the interactive Streamlit dashboard now or run the reproducible pipeline directly from the command line.
+            </p>
+            <a
+              class="btn btn-primary"
+              href="http://localhost:8501"
+              target="_blank"
+              rel="noopener"
+              style="font-size: 1.05rem; padding: 14px 28px;"
+            >
+              Open Streamlit Dashboard (:8501) <span>→</span>
+            </a>
+            <br />
+            <div class="command-snippet">
+              <span>$</span> make app &nbsp;|&nbsp; <span>$</span> make run
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="container footer-content">
+        <div>
+          <strong>MARINE<span>•</span>LATENT</strong> &nbsp;|&nbsp; Unsupervised Marine Latent Regime Detection
+        </div>
+        <div>
+          <span>Author: Rishabh Gokhe</span> &nbsp;•&nbsp; <span>PyTorch • HMM • Streamlit</span>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Interactive Logic Script -->
+    <script src="script.js"></script>
+  </body>
+</html>

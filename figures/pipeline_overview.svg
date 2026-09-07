@@ -1,0 +1,32 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='360' viewBox='0 0 1200 360'>
+<style> .title{font:700 22px Arial;} .box{fill:#F2F6FA;stroke:#2E6F95;stroke-width:2;} .text{font:12px Arial;} .arrow{stroke:#2E6F95;stroke-width:2;marker-end:url(#arrow);} </style>
+<defs><marker id='arrow' markerWidth='10' markerHeight='7' refX='10' refY='3.5' orient='auto'><polygon points='0 0, 10 3.5, 0 7' fill='#2E6F95'/></marker></defs>
+<text x='600.0' y='28' text-anchor='middle' class='title'>Pipeline Overview</text>
+<rect x='40' y='80' width='160' height='70' class='box' rx='6' ry='6' />
+<text x='120.0' y='104' text-anchor='middle' class='text'>Ingest</text>
+<text x='120.0' y='120' text-anchor='middle' class='text'>CSV/Parquet</text>
+<rect x='230' y='80' width='180' height='70' class='box' rx='6' ry='6' />
+<text x='320.0' y='104' text-anchor='middle' class='text'>Resample +</text>
+<text x='320.0' y='120' text-anchor='middle' class='text'>Quality Control</text>
+<rect x='440' y='80' width='180' height='70' class='box' rx='6' ry='6' />
+<text x='530.0' y='104' text-anchor='middle' class='text'>Windowed</text>
+<text x='530.0' y='120' text-anchor='middle' class='text'>Features</text>
+<rect x='650' y='80' width='180' height='70' class='box' rx='6' ry='6' />
+<text x='740.0' y='104' text-anchor='middle' class='text'>Standardize</text>
+<rect x='860' y='60' width='300' height='110' class='box' rx='6' ry='6' />
+<text x='1010.0' y='84' text-anchor='middle' class='text'>Models:</text>
+<text x='1010.0' y='100' text-anchor='middle' class='text'>K-Means / GMM / HMM</text>
+<text x='1010.0' y='116' text-anchor='middle' class='text'>+ Dense AE / LSTM AE / VAE</text>
+<rect x='440' y='190' width='280' height='70' class='box' rx='6' ry='6' />
+<text x='580.0' y='214' text-anchor='middle' class='text'>Hierarchical Macro</text>
+<text x='580.0' y='230' text-anchor='middle' class='text'>Regime Mapping</text>
+<rect x='760' y='190' width='220' height='70' class='box' rx='6' ry='6' />
+<text x='870.0' y='214' text-anchor='middle' class='text'>Diagnostics +</text>
+<text x='870.0' y='230' text-anchor='middle' class='text'>Artifacts</text>
+<line x1='200' y1='115' x2='230' y2='115' class='arrow' />
+<line x1='410' y1='115' x2='440' y2='115' class='arrow' />
+<line x1='620' y1='115' x2='650' y2='115' class='arrow' />
+<line x1='830' y1='115' x2='860' y2='115' class='arrow' />
+<line x1='570' y1='150' x2='570' y2='190' class='arrow' />
+<line x1='720' y1='225' x2='760' y2='225' class='arrow' />
+</svg>

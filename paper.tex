@@ -1,0 +1,320 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{svg}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+
+\title{Hierarchical Latent State Segmentation of Marine Time-Series Data Using HMM}
+
+\author{\IEEEauthorblockN{1\textsuperscript{st} Given Name Surname}
+\IEEEauthorblockA{\textit{Computer Science} \\
+\textit{Yeshwantrao Chavan College of Eng}\\
+Nagpur, India \\
+email address or ORCID}
+\and
+\IEEEauthorblockN{2\textsuperscript{nd} Given Name Surname}
+\IEEEauthorblockA{\textit{Computer Science} \\
+\textit{Yeshwantrao Chavan College of Engineering}\\
+Nagpur, India \\
+email address or ORCID}
+\and
+\IEEEauthorblockN{3\textsuperscript{rd} Given Name Surname}
+\IEEEauthorblockA{\textit{Computer Science} \\
+\textit{Yeshwantrao Chavan College of Eng}\\
+Nagpur, India \\
+email address or ORCID}
+\and
+\IEEEauthorblockN{4\textsuperscript{th} Given Name Surname}
+\IEEEauthorblockA{\textit{Computer Science} \\
+\textit{Yeshwantrao Chavan College of Eng}\\
+Nagpur, India \\
+email address or ORCID}
+\and
+\IEEEauthorblockN{5\textsuperscript{th} Given Name Surname}
+\IEEEauthorblockA{\textit{Computer Science} \\
+\textit{Yeshwantrao Chavan College of Eng}\\
+Nagpur, India \\
+email address or ORCID}
+\and
+\IEEEauthorblockN{6\textsuperscript{th} Given Name Surname}
+\IEEEauthorblockA{\textit{Computer Science} \\
+\textit{Yeshwantrao Chavan College of Eng}\\
+Nagpur, India \\
+email address or ORCID}
+}
+
+\maketitle
+
+\begin{abstract}
+Unsupervised discovery of latent regimes in multivariate marine time-series is challenging due to noise, missing data, and temporal dependencies. We present a config-driven framework for identifying hidden marine states without labels. The pipeline performs resampling, gap handling, and outlier clipping; extracts multi-scale sliding-window features; optionally learns dense autoencoder embeddings; and performs regime discovery using K-Means, Gaussian Mixture Models, and Hidden Markov Models (HMMs) with temporal coherence. A hierarchical mapping aggregates micro-states into macro-regimes. Experiments on NOAA buoy data using an hourly resampled dataset demonstrate that hierarchical HMM-based macro regimes produce higher temporal stability and improved cluster quality compared to flat, non-temporal baselines.
+\end{abstract}
+
+\begin{IEEEkeywords}
+marine time-series, unsupervised learning, regime discovery, hidden Markov model, autoencoder, hierarchical clustering
+\end{IEEEkeywords}
+
+\section{Introduction}
+Marine observation systems (buoys and ocean monitoring stations) produce continuous multivariate time-series that reflect evolving oceanic and atmospheric conditions. These data streams are high-variance, incomplete, and non-stationary due to changing weather systems, diurnal cycles, and seasonal effects. A critical analysis task is to identify latent behavioral regimes: persistent system states that govern wave dynamics, wind patterns, and pressure changes over time. Labeled regime data are rarely available in operational marine settings, which makes supervised approaches impractical.
+
+This paper focuses on unsupervised regime discovery for marine telemetry, aligned with a full end-to-end pipeline implemented in our project. The system is configuration-driven and reproducible, and it transforms raw buoy data into interpretable regime sequences. The pipeline includes station-wise resampling, rigorous quality control (sentinel replacement, gap handling, and quantile-based clipping), multi-scale sliding-window feature extraction, and standardized feature matrices used by multiple unsupervised models. We compare static clustering baselines (K-Means and GMM) against probabilistic temporal modeling with Hidden Markov Models (HMMs). To improve representation quality, we optionally learn dense autoencoder embeddings and run clustering/HMMs in latent space. Finally, we apply a hierarchical macro-regime mapping that groups fine-grained micro-states into interpretable ocean conditions.
+
+Beyond modeling, the project emphasizes practical reproducibility. Each run outputs processed data, feature matrices, model artifacts, and diagnostic reports for inspection and inference. A Streamlit dashboard provides interactive visualizations of regime timelines, distributions, and transitions. This paper documents the system end-to-end and reports results using the same artifacts that power the dashboard and offline analysis.
+
+\subsection{Contributions}
+\begin{itemize}
+\item An end-to-end, config-driven pipeline for unsupervised marine regime discovery that integrates ingestion, preprocessing, feature extraction, modeling, and diagnostics.
+\item A multi-scale windowing strategy with statistical descriptors (mean, std, trend, energy, min, max) that captures both short-term variability and long-term structure.
+\item Temporal regime modeling with HMMs, including comparison to static clustering baselines, and diagnostics for transition behavior and regime stability.
+\item A dense autoencoder representation learning module that improves regime separability and supports latent-space clustering and HMM inference.
+\item A hierarchical regime abstraction (micro to macro) that produces interpretable macro states and improves temporal stability.
+\end{itemize}
+
+\subsection{Related Work}
+Marine time-series analysis is frequently approached through supervised forecasting for prediction of waves, wind, or pressure. Recent forecasting methods include transformer-based and sequence models designed for long-horizon accuracy and efficiency, but these approaches generally do not model latent regime structure or state transitions [1]. Anomaly detection is another active area, where statistical models (e.g., multi-seasonal ARIMA variants) and deep models (LSTM, CNN, autoencoders) detect unusual events in multivariate sensor streams [2][3]. These methods emphasize outlier detection rather than regime segmentation.
+
+Probabilistic temporal models, especially HMMs, are widely used for latent state modeling in time-series. Extensions to hierarchical HMMs and Bayesian clustering of HMMs improve state selection, model selection, and multi-level abstraction [4][5][6]. Our work aligns with these approaches but targets an operational marine regime discovery setting, combining windowed feature engineering, latent representation learning, and hierarchical macro-state mapping within a single reproducible pipeline.
+
+\section{Dataset and Quality Control}
+The dataset is derived from the NOAA Marine Buoy Dataset and consolidated into a merged file referenced by \texttt{configs/config\_major.yml}. The system is designed to operate on long-range, multi-station telemetry, but the experiment reported here uses the merged buoy file that was curated for consistency across stations. The pipeline resamples each station to a uniform hourly cadence and performs a strict quality control process before feature extraction. This experiment produces 5{,}071 resampled rows across 107 stations, which are then converted into 3{,}949 windowed samples with a final feature dimensionality of 288. These values are consistent with the generated artifacts in \texttt{outputs/major\_latest}.
+
+The NOAA dataset was selected because it contains rich multivariate signals that are known to be non-stationary. Ocean and atmospheric variables (wind, wave, pressure, temperature) exhibit strong variability, intermittent missingness, and directional structure, which stress test the ability of unsupervised models to discover coherent regimes without labels.
+
+\subsection{Dataset Features}
+The dataset includes a mix of numerical and directional variables:
+\begin{itemize}
+\item \textbf{Numerical}: wind speed, sea level pressure, air temperature, sea surface temperature, dew point temperature, wave period, wave height, swell period, swell height, and total cloud amount.
+\item \textbf{Directional}: wind direction, wave direction, and swell direction.
+\end{itemize}
+
+Directional variables are modeled explicitly rather than treated as linear scalars. These signals represent angles, so direct averaging or normalization can distort their circular structure. We handle this in two stages: circular mean during resampling and sine/cosine encoding during feature preparation.
+
+Directional variables are represented using sine/cosine encoding to preserve circularity after interpolation:
+\[
+\text{dir\_sin}=\sin(\theta), \quad \text{dir\_cos}=\cos(\theta)
+\]
+
+\subsection{Temporal Processing}
+Raw records are grouped by station and resampled to a uniform hourly resolution (\texttt{resample\_rule=1h}). This step standardizes the temporal axis for all stations, enabling consistent windowing and regime inference. For numerical variables, arithmetic means are used per hour. For directional variables, we apply a circular mean to preserve angular continuity:
+\[
+\bar{\theta} = \text{atan2}(\overline{\sin(\theta)}, \overline{\cos(\theta)})
+\]
+This prevents spurious averages near angle wrap-around (e.g., 359$^\circ$ and 1$^\circ$).
+
+\subsection{Quality Control and Preprocessing}
+Quality control is a critical step due to the high missingness typical in marine telemetry. The pipeline first replaces sentinel values (\texttt{99}, \texttt{999}, \texttt{9999}, \texttt{99999}) with NaN, ensuring they are treated consistently during imputation. Missing values are then handled using a hybrid strategy:
+\begin{itemize}
+\item \textbf{Short gaps}: forward/backward fill with \texttt{small\_gap\_limit=2}.
+\item \textbf{Medium gaps}: linear interpolation with \texttt{medium\_gap\_limit=6}.
+\item \textbf{Large gaps}: retained (no dropping) to preserve station continuity.
+\end{itemize}
+
+Outlier values are clipped using quantile bounds at $[0.005, 0.995]$ to reduce the impact of extreme measurement noise while preserving distributional shape. Finally, all features are standardized using a \texttt{StandardScaler}, producing a stable feature matrix for clustering and HMM inference.
+
+\subsection{Quality Report}
+The pipeline generates a structured quality report that logs missingness ratios before and after imputation, outlier clipping bounds, and the final feature counts. For the reported experiment, missing ratios remain high for some wave-related variables, reflecting real data sparsity in buoy sensors. The report also records the final feature dimensionality (288), the window count (3{,}949), and whether NaNs remain after preprocessing. This report provides transparency for downstream model interpretation and is saved in \texttt{outputs/major\_latest/quality\_report.json}.
+
+\begin{figure}[t]
+\centering
+\includesvg[width=\columnwidth]{figures/missingness_before}
+\caption{Feature-wise missing ratio before imputation, highlighting severe sparsity in several wave and swell variables.}
+\label{fig:missing_before}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includesvg[width=\columnwidth]{figures/missingness_after}
+\caption{Feature-wise missing ratio after imputation. Missingness is reduced, but wave-related channels remain comparatively sparse.}
+\label{fig:missing_after}
+\end{figure}
+
+Figures~\ref{fig:missing_before} and~\ref{fig:missing_after} summarize the core data quality challenge in this study. Even after hybrid gap filling, some marine variables remain substantially incomplete, motivating the use of robust feature extraction and latent representations rather than direct raw-signal clustering.
+
+\section{Methodology}
+
+\subsection{Pipeline Overview}
+The system implements a config-driven, end-to-end regime discovery pipeline. The full flow consists of:
+\begin{itemize}
+\item data ingestion and schema validation;
+\item station-wise temporal resampling;
+\item quality control (sentinel handling, gap filling, clipping);
+\item directional encoding (sine/cosine);
+\item windowed feature extraction (single or multi-scale);
+\item feature standardization;
+\item unsupervised modeling (K-Means, GMM, HMM);
+\item optional deep representation learning (Dense AE, LSTM AE, VAE);
+\item hierarchical macro-regime mapping;
+\item diagnostics and artifact packaging.
+\end{itemize}
+Each step is controlled by configuration in \texttt{configs/config\_major.yml}. Outputs are stored in structured artifacts for reproducibility and inference.
+
+\begin{figure}[t]
+\centering
+\includesvg[width=\columnwidth]{figures/pipeline_overview}
+\caption{Config-driven workflow used to transform raw buoy telemetry into latent micro-regimes, macro-regimes, and reproducible evaluation artifacts.}
+\label{fig:pipeline}
+\end{figure}
+
+Figure~\ref{fig:pipeline} emphasizes that the proposed system is not a single model, but a reproducible pipeline spanning preprocessing, feature construction, unsupervised learning, temporal diagnostics, and artifact packaging.
+
+\subsection{Data Preprocessing}
+Preprocessing is applied at the station level to preserve temporal continuity. The raw signals are resampled to hourly intervals, directional features are summarized with circular means, sentinel values are replaced with NaNs, and missing values are imputed using the hybrid strategy described earlier. After imputation, directional features are expanded into sine and cosine components and appended to the numeric feature set. All features are scaled with \texttt{StandardScaler} to stabilize model training and prevent dominance by high-variance variables.
+
+\subsection{Multi-Scale Feature Extraction}
+Temporal dynamics are represented using past-only sliding windows. The pipeline supports both single-scale and multi-scale feature extraction. In this experiment, the configuration enables multi-scale windows with sizes \{6, 24, 72\}, a multi-scale stride of 3, and a base window size of 12 with a step size of 6. For each window and feature, the following statistical descriptors are computed:
+\begin{itemize}
+\item mean
+\item standard deviation
+\item trend (last value minus first value)
+\item energy ($\sum x^2 / \text{window length}$)
+\item maximum
+\item minimum
+\end{itemize}
+Feature names are prefixed by scale (e.g., \texttt{WIND\_SPEED\_s24\_mean}), and multi-scale features are concatenated at the same window end index, producing a rich multiresolution embedding of ocean conditions.
+
+\subsection{Baseline Unsupervised Models}
+K-Means and Gaussian Mixture Models (GMM) provide the static clustering baselines. K-Means partitions windows into spherical clusters by minimizing within-cluster variance. GMM fits a probabilistic mixture of Gaussians, allowing soft assignments and ellipsoidal cluster shapes. The number of clusters is selected from candidate values \{10, 12, 15\} using internal validation metrics: silhouette score for K-Means and BIC for GMM.
+
+\begin{figure}[t]
+\centering
+\includesvg[width=\columnwidth]{figures/kmeans_silhouette_by_k}
+\caption{K-Means model selection over candidate state counts using silhouette score. Higher values indicate stronger geometric separation.}
+\label{fig:kmeans_selection}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includesvg[width=\columnwidth]{figures/gmm_bic_by_k}
+\caption{GMM model selection over candidate state counts using BIC. Lower values indicate a better fit-complexity trade-off.}
+\label{fig:gmm_selection}
+\end{figure}
+
+Figures~\ref{fig:kmeans_selection} and~\ref{fig:gmm_selection} provide transparent justification for the selected baseline hyperparameters. This is important because internal model selection strongly affects downstream regime duration and interpretability.
+
+\subsection{Temporal Modeling with HMMs}
+Hidden Markov Models (HMMs) are used to capture temporal dependencies that static clustering ignores. We use a GaussianHMM with diagonal covariance. The HMM learns both emission distributions in feature space and a transition matrix between latent regimes. This enables temporally coherent regime segmentation, where each window label depends on both its features and temporal context. HMM state counts are selected from the same candidate set as baseline clustering.
+
+\subsection{Latent Representation Learning}
+To improve representation quality, a dense autoencoder is trained on the standardized window feature matrix. The encoder compresses inputs into a 32-dimensional latent space, and the decoder reconstructs the original features using MSE loss. This latent embedding reduces noise and redundancy and often improves regime separability. Both K-Means and HMM models are trained on these latent embeddings to compare performance with raw feature space.
+
+In addition to the dense autoencoder, the project includes a sequential LSTM autoencoder and a VAE ablation. The LSTM autoencoder encodes sequences of window features into a latent vector using the last hidden state, then reconstructs via an LSTM decoder. The VAE introduces probabilistic latent variables with a KL-regularized objective. These models are evaluated for completeness, but they are not the primary focus of the reported macro-regime results.
+
+\subsection{Hierarchical Regime Mapping}
+Micro-level regimes inferred by the HMM are further abstracted into macro-level regimes. The pipeline computes mean feature vectors for each micro-state and applies K-Means over these state means. This yields a deterministic mapping from micro to macro regimes, producing a small number of interpretable macro states (configured as 4 in this experiment). This hierarchy improves regime stability and allows higher-level interpretation of ocean conditions.
+
+\subsection{Evaluation and Diagnostics}
+We evaluate clustering quality using silhouette score and Davies--Bouldin index. Temporal coherence is quantified using mean regime duration and transition statistics (entropy and transition matrices). For probabilistic models, log-likelihood and BIC are reported when applicable. Additional diagnostics include:
+\begin{itemize}
+\item HMM seed stability analysis using Adjusted Rand Index (ARI).
+\item Changepoint detection with PELT (RBF cost) and boundary alignment metrics.
+\item Pressure-drop analysis around regime transitions for interpretability.
+\end{itemize}
+These diagnostics help determine whether regimes are stable, temporally coherent, and meaningful relative to observable changes in the underlying data.
+
+\subsection{Implementation and Reproducibility}
+The full pipeline is implemented in a modular codebase. Configuration files define dataset paths, preprocessing rules, window sizes, and model parameters. Each run logs all artifacts to a structured output directory, including processed data, window features, trained models, metric reports, changepoints, and macro mappings. This design ensures that any experiment can be re-executed exactly with the same configuration and that inference can be performed without retraining using saved artifacts.
+
+\section{Results}
+Results are drawn from the configured major experiment (see \texttt{outputs/major\_latest/model\_metrics.json}). This experiment uses the multi-scale windowing configuration, dense autoencoder embeddings, HMM-based temporal segmentation, and a 4-regime macro mapping. Metrics reported here reflect the actual model artifacts produced by the pipeline.
+
+\subsection{Baseline Model Comparison}
+\begin{table}[h]
+\centering
+\caption{Baseline model performance on the major NOAA experiment. Average duration is reported in window units.}
+\label{tab:baseline_results}
+\begin{tabular}{lcccc}
+\hline
+Model & Silhouette & BIC & Avg Duration & DBI \\
+\hline
+K-Means & 0.5212 & -- & 44.88 & 1.3384 \\
+GMM & 0.4255 & -9.29e6 & 48.16 & 1.2385 \\
+HMM & 0.4070 & -9.76e6 & 49.99 & 1.8743 \\
+\hline
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:baseline_results} shows that K-Means yields the strongest geometric separation among the baseline models, while GMM and HMM produce slightly longer regime persistence. HMM provides the temporal modeling capacity needed for sequential segmentation, but its lower silhouette and higher Davies--Bouldin score reflect the expected trade-off between smooth temporal assignments and compact static clusters.
+
+\subsection{Extended Model Comparison}
+\begin{table}[h]
+\centering
+\caption{Extended comparison including latent-space and hierarchical models. Average duration is reported in window units where available.}
+\label{tab:extended_results}
+\normalsize
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{lcccc}
+\hline
+Model & Silhouette & BIC & Avg Duration & DBI \\
+\hline
+Dense AE + K-Means & 0.5268 & -- & 45.92 & 1.2105 \\
+Dense AE + HMM & 0.4462 & 9.71e4 & 28.01 & 2.1810 \\
+Dense AE + HMM (Macro) & 0.7536 & -- & 109.69 & 1.2284 \\
+Deep LSTM AE & 0.4831 & -- & -- & 2.6130 \\
+VAE Ablation & 0.1968 & -- & -- & 3.4317 \\
+\hline
+\end{tabular}
+}
+\end{table}
+
+Table~\ref{tab:extended_results} indicates that latent representation learning alone is not sufficient; the largest gains appear when latent HMM micro-states are further aggregated into macro-regimes. The Dense AE + HMM (Macro) model achieves both the highest silhouette score (0.7536) and by far the longest mean regime duration (109.69), suggesting that the hierarchical abstraction filters out short-lived micro-state fluctuations while preserving meaningful operating patterns. By contrast, the LSTM AE and VAE ablations underperform in this configuration, especially in Davies--Bouldin score.
+
+\begin{figure}[t]
+\centering
+\includesvg[width=\columnwidth]{figures/silhouette_comparison}
+\caption{Silhouette comparison across baseline, latent, and hierarchical models. The macro-regime model provides the clearest separation.}
+\label{fig:silhouette_comparison}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includesvg[width=\columnwidth]{figures/mean_duration_comparison}
+\caption{Mean regime duration by model in window units. Hierarchical macro-regimes are substantially more persistent than flat assignments.}
+\label{fig:duration_comparison}
+\end{figure}
+
+Figures~\ref{fig:silhouette_comparison} and~\ref{fig:duration_comparison} summarize the central empirical result of the paper: the best overall behavior is obtained not from a flat clustering model, but from hierarchical temporal abstraction built on top of dense latent features and HMM micro-state discovery.
+
+\subsection{Cross-Model Aggregated Analysis}
+Across all models, two consistent patterns emerge. First, temporal models tend to sacrifice some geometric compactness in exchange for smoother and more persistent state assignments. Second, representation learning is most effective when paired with hierarchical abstraction rather than evaluated in isolation. The Dense AE + HMM macro model therefore represents the best balance of separability, persistence, and interpretability in this study.
+
+\subsection{Temporal Dynamics and Stability}
+Transition behavior highlights the difference between static and temporal models. K-Means and GMM can switch rapidly between neighboring windows because they do not explicitly encode transition structure. HMMs regularize this behavior through a learned transition matrix, yielding smoother regime sequences, and the macro-regime mapping further increases stability by collapsing micro-states into a smaller set of operationally interpretable states.
+
+\subsection{Key Observations}
+\begin{itemize}
+\item K-Means provides the strongest geometric clustering among baseline models, but lacks temporal continuity.
+\item HMMs improve temporal coherence at the cost of reduced separability in feature space.
+\item Dense autoencoder embeddings improve representation quality but do not guarantee stable regimes without hierarchical mapping.
+\item Macro-regime mapping yields the highest stability and provides interpretable, long-duration ocean state segments.
+\end{itemize}
+
+\section{Discussion}
+The results reveal an inherent trade-off between structural clustering metrics and temporal coherence. K-Means performs well on silhouette but produces fragmented regime sequences. HMMs resolve fragmentation by introducing transition dynamics, but this smoothness is achieved at the cost of geometric compactness. The dense autoencoder improves representation quality, yet stable segmentation still requires hierarchical abstraction. This indicates that temporal consistency and interpretability arise not only from modeling transitions, but also from the semantic aggregation of micro-level states.
+
+Changepoint diagnostics provide additional context: boundaries detected by statistical change detection do not always align with inferred regime transitions. This suggests that marine regimes often evolve gradually rather than through abrupt shifts, making boundary-based methods less effective in isolation. The macro-regime model captures these gradual shifts by allowing micro-level variation within a stable high-level state.
+
+Another key observation is the impact of missingness. The quality report shows that several wave-related variables remain sparse even after imputation. This highlights the importance of robust preprocessing and supports the use of representation learning to mitigate noise and incompleteness. Future work should consider explicit modeling of missingness or uncertainty-aware inference.
+
+\section{Conclusion}
+This paper presents a reproducible, end-to-end framework for unsupervised regime discovery in multivariate marine time-series. The system integrates data preprocessing, multi-scale feature extraction, clustering, representation learning, temporal modeling, and hierarchical abstraction within a single configuration-driven pipeline. Experimental results on NOAA buoy data show that hierarchical macro-regime mapping combined with dense AE embeddings and HMM inference provides the most stable and interpretable regime segmentation. The pipeline is extensible and practical for real-world environmental monitoring, where labeled regimes are rarely available.
+
+\section{Future Work}
+Future work includes extending HMMs to Hidden Semi-Markov Models to explicitly model regime durations, and incorporating transformer-based temporal encoders to capture long-range dependencies beyond fixed window sizes. Online inference is another key direction, enabling real-time regime detection for operational monitoring. Cross-region transfer learning and incorporation of physical domain constraints (oceanographic and meteorological indicators) can further improve interpretability and generalization. Finally, uncertainty-aware modeling of missing data could reduce sensitivity to sparse sensor coverage and improve robustness.
+
+\begin{thebibliography}{00}
+\bibitem{b1} J. Teng, R. Qin, and C. Xu, ``Time Series Forecasting in Marine Environment Monitoring Sensor Networks Based on Edge Computing,'' \textit{IEEE Access}, vol. 13, pp. 56399--56412, 2025.
+\bibitem{b2} A. T. Williams, R. E. Sperl, and S. M. Chung, ``Anomaly Detection in Multi-Seasonal Time Series Data,'' \textit{IEEE Access}, vol. 11, pp. 106456--106464, 2023, doi: 10.1109/ACCESS.2023.3317791.
+\bibitem{b3} H. Nizam, S. Zafar, Z. Lv, F. Wang, and X. Hu, ``Real-Time Deep Anomaly Detection Framework for Multivariate Time-Series Data in Industrial IoT,'' \textit{IEEE Sensors Journal}, vol. 22, no. 23, pp. 22836--22849, 2022, doi: 10.1109/JSEN.2022.3211874.
+\bibitem{b4} H. Lan, Z. Liu, J. H. Hsiao, D. Yu, and A. B. Chan, ``Clustering Hidden Markov Models With Variational Bayesian Hierarchical EM,'' \textit{IEEE Transactions on Neural Networks and Learning Systems}, vol. 34, no. 3, pp. 1537--1551, 2023, doi: 10.1109/TNNLS.2021.3105570.
+\bibitem{b5} X. Xu and J. Jald{\'e}n, ``Marginalized Beam Search Algorithms for Hierarchical HMMs,'' \textit{IEEE Transactions on Signal Processing}, vol. 72, pp. 3013--3027, 2024, doi: 10.1109/TSP.2024.3415468.
+\bibitem{b6} R. Souriau, A. Moly, F. Martel, L. Struber, T. Aksenova, G. Charvet, V. Juillard, and S. Karakas, ``Hierarchical Hidden Markov Model for Online Decoding in Brain-Computer Interface,'' in \textit{Proc. EUSIPCO}, 2024.
+\end{thebibliography}
+\vspace{12pt}
+
+\end{document}

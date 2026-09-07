@@ -1,0 +1,49 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='500' viewBox='0 0 1200 500'>
+<style> .title{font:700 22px Arial;} .label{font:12px Arial;} .axis{stroke:#222;stroke-width:1;} .bar{fill:#2E6F95;} .grid{stroke:#ddd;stroke-width:1;} </style>
+<text x='600.0' y='32' text-anchor='middle' class='title'>Missing Ratio Before Imputation</text>
+<line x1='80' y1='420.0' x2='1160' y2='420.0' class='grid' />
+<text x='72' y='424.0' text-anchor='end' class='label'>0.00</text>
+<line x1='80' y1='348.0' x2='1160' y2='348.0' class='grid' />
+<text x='72' y='352.0' text-anchor='end' class='label'>0.22</text>
+<line x1='80' y1='276.0' x2='1160' y2='276.0' class='grid' />
+<text x='72' y='280.0' text-anchor='end' class='label'>0.43</text>
+<line x1='80' y1='204.0' x2='1160' y2='204.0' class='grid' />
+<text x='72' y='208.0' text-anchor='end' class='label'>0.65</text>
+<line x1='80' y1='132.0' x2='1160' y2='132.0' class='grid' />
+<text x='72' y='136.0' text-anchor='end' class='label'>0.87</text>
+<line x1='80' y1='60.0' x2='1160' y2='60.0' class='grid' />
+<text x='72' y='64.0' text-anchor='end' class='label'>1.08</text>
+<line x1='80' y1='60' x2='80' y2='420' class='axis' />
+<line x1='80' y1='420' x2='1160' y2='420' class='axis' />
+<rect x='80.0' y='118.34049057427767' width='97.2' height='301.6595094257223' class='bar' />
+<text x='128.6' y='112.34049057427767' text-anchor='middle' class='label'>0.91</text>
+<text x='128.6' y='438' text-anchor='middle' class='label'>WIND_SPEED</text>
+<rect x='189.2' y='228.457675231094' width='97.2' height='191.542324768906' class='bar' />
+<text x='237.79999999999998' y='222.457675231094' text-anchor='middle' class='label'>0.58</text>
+<text x='237.79999999999998' y='438' text-anchor='middle' class='label'>SEA_LVL_PRES</text>
+<rect x='298.4' y='131.70390858141064' width='97.2' height='288.29609141858936' class='bar' />
+<text x='347.0' y='125.70390858141064' text-anchor='middle' class='label'>0.87</text>
+<text x='347.0' y='438' text-anchor='middle' class='label'>AIR_TEMP</text>
+<rect x='407.6' y='270.3166169299076' width='97.2' height='149.68338307009242' class='bar' />
+<text x='456.20000000000005' y='264.3166169299076' text-anchor='middle' class='label'>0.45</text>
+<text x='456.20000000000005' y='438' text-anchor='middle' class='label'>SEA_SURF_TEMP</text>
+<rect x='516.8' y='130.5247834631342' width='97.2' height='289.4752165368658' class='bar' />
+<text x='565.4' y='124.52478346313421' text-anchor='middle' class='label'>0.87</text>
+<text x='565.4' y='438' text-anchor='middle' class='label'>DEW_PT_TEMP</text>
+<rect x='626.0' y='95.67508552296388' width='97.2' height='324.32491447703615' class='bar' />
+<text x='674.6' y='89.67508552296388' text-anchor='middle' class='label'>0.98</text>
+<text x='674.6' y='438' text-anchor='middle' class='label'>WAVE_PERIOD</text>
+<rect x='735.2' y='96.13363418007137' width='97.2' height='323.86636581992866' class='bar' />
+<text x='783.8000000000001' y='90.13363418007137' text-anchor='middle' class='label'>0.97</text>
+<text x='783.8000000000001' y='438' text-anchor='middle' class='label'>WAVE_HGT</text>
+<rect x='844.4' y='92.72727272727278' width='97.2' height='327.27272727272725' class='bar' />
+<text x='893.0' y='86.72727272727278' text-anchor='middle' class='label'>0.99</text>
+<text x='893.0' y='438' text-anchor='middle' class='label'>SWELL_PERIOD</text>
+<rect x='953.6' y='93.18582138438029' width='97.2' height='326.8141786156197' class='bar' />
+<text x='1002.2' y='87.18582138438029' text-anchor='middle' class='label'>0.98</text>
+<text x='1002.2' y='438' text-anchor='middle' class='label'>SWELL_HGT</text>
+<rect x='1062.8000000000002' y='96.33015503311742' width='97.2' height='323.6698449668826' class='bar' />
+<text x='1111.4' y='90.33015503311742' text-anchor='middle' class='label'>0.97</text>
+<text x='1111.4' y='438' text-anchor='middle' class='label'>TOT_CLD_AMT</text>
+<text x='18' y='250.0' text-anchor='middle' class='label' transform='rotate(-90 18 250.0)'>Missing Ratio</text>
+</svg>

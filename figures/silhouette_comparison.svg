@@ -1,0 +1,43 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='500' viewBox='0 0 1200 500'>
+<style> .title{font:700 22px Arial;} .label{font:12px Arial;} .axis{stroke:#222;stroke-width:1;} .bar{fill:#2E6F95;} .grid{stroke:#ddd;stroke-width:1;} </style>
+<text x='600.0' y='32' text-anchor='middle' class='title'>Silhouette Scores by Model</text>
+<line x1='80' y1='420.0' x2='1160' y2='420.0' class='grid' />
+<text x='72' y='424.0' text-anchor='end' class='label'>0.000</text>
+<line x1='80' y1='348.0' x2='1160' y2='348.0' class='grid' />
+<text x='72' y='352.0' text-anchor='end' class='label'>0.166</text>
+<line x1='80' y1='276.0' x2='1160' y2='276.0' class='grid' />
+<text x='72' y='280.0' text-anchor='end' class='label'>0.332</text>
+<line x1='80' y1='203.99999999999997' x2='1160' y2='203.99999999999997' class='grid' />
+<text x='72' y='207.99999999999997' text-anchor='end' class='label'>0.497</text>
+<line x1='80' y1='132.0' x2='1160' y2='132.0' class='grid' />
+<text x='72' y='136.0' text-anchor='end' class='label'>0.663</text>
+<line x1='80' y1='60.0' x2='1160' y2='60.0' class='grid' />
+<text x='72' y='64.0' text-anchor='end' class='label'>0.829</text>
+<line x1='80' y1='60' x2='80' y2='420' class='axis' />
+<line x1='80' y1='420' x2='1160' y2='420' class='axis' />
+<rect x='80.0' y='193.67117007322136' width='124.5' height='226.32882992677864' class='bar' />
+<text x='142.25' y='187.67117007322136' text-anchor='middle' class='label'>0.521</text>
+<text x='142.25' y='438' text-anchor='middle' class='label'>K-Means</text>
+<rect x='216.5' y='235.2390106187937' width='124.5' height='184.7609893812063' class='bar' />
+<text x='278.75' y='229.2390106187937' text-anchor='middle' class='label'>0.425</text>
+<text x='278.75' y='438' text-anchor='middle' class='label'>GMM</text>
+<rect x='353.0' y='243.23723870458036' width='124.5' height='176.76276129541964' class='bar' />
+<text x='415.25' y='237.23723870458036' text-anchor='middle' class='label'>0.407</text>
+<text x='415.25' y='438' text-anchor='middle' class='label'>HMM</text>
+<rect x='489.5' y='191.2207630989942' width='124.5' height='228.7792369010058' class='bar' />
+<text x='551.75' y='185.2207630989942' text-anchor='middle' class='label'>0.527</text>
+<text x='551.75' y='438' text-anchor='middle' class='label'>DenseAE+KMeans</text>
+<rect x='626.0' y='226.25461658267764' width='124.5' height='193.74538341732236' class='bar' />
+<text x='688.25' y='220.25461658267764' text-anchor='middle' class='label'>0.446</text>
+<text x='688.25' y='438' text-anchor='middle' class='label'>DenseAE+HMM</text>
+<rect x='762.5' y='92.72727272727275' width='124.5' height='327.27272727272725' class='bar' />
+<text x='824.75' y='86.72727272727275' text-anchor='middle' class='label'>0.754</text>
+<text x='824.75' y='438' text-anchor='middle' class='label'>DenseAE+HMM(M)</text>
+<rect x='899.0' y='210.1998016034284' width='124.5' height='209.8001983965716' class='bar' />
+<text x='961.25' y='204.1998016034284' text-anchor='middle' class='label'>0.483</text>
+<text x='961.25' y='438' text-anchor='middle' class='label'>LSTM AE</text>
+<rect x='1035.5' y='334.5207294657046' width='124.5' height='85.47927053429538' class='bar' />
+<text x='1097.75' y='328.5207294657046' text-anchor='middle' class='label'>0.197</text>
+<text x='1097.75' y='438' text-anchor='middle' class='label'>VAE</text>
+<text x='18' y='250.0' text-anchor='middle' class='label' transform='rotate(-90 18 250.0)'>Silhouette</text>
+</svg>

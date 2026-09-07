@@ -1,6 +1,6 @@
 # Unsupervised Marine Latent Regime Detection
 
-Final-year CSE project (7th semester) focused on discovering hidden operational regimes in multivariate marine time-series. This repository includes a full offline pipeline, a Streamlit inference dashboard, and a research packaging system for experiment tracking.
+This project focuses on discovery of hidden operational regimes in multivariate marine time-series. This repository includes a full offline pipeline, a Streamlit inference dashboard, and a research packaging system for experiment tracking.
 
 If you read this README once, you should understand exactly what the project does, why each component exists, and how the outputs are produced.
 

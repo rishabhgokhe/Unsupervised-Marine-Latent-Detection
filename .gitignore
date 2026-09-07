@@ -1,9 +1,12 @@
 __pycache__/
 *.pyc
 .venv/
+venv/
 .env
 .DS_Store
+**/.DS_Store
 outputs/
 mlruns/
 *.ipynb_checkpoints
 .pytest_cache/
+

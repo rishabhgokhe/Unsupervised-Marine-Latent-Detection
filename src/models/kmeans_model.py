@@ -15,7 +15,8 @@ def train_kmeans(X: np.ndarray, n_clusters: int, random_state: int = 42) -> tupl
 
 def evaluate_kmeans(X: np.ndarray, candidate_ks: Iterable[int], random_state: int = 42) -> Dict[int, float]:
     scores: Dict[int, float] = {}
-    for k in sorted(set(int(v) for v in candidate_ks if int(v) >= 2)):
+    n_samples = int(X.shape[0])
+    for k in sorted(set(int(v) for v in candidate_ks if 2 <= int(v) < n_samples)):
         _, labels = train_kmeans(X, n_clusters=k, random_state=random_state)
         if len(np.unique(labels)) < 2:
             scores[k] = -1.0

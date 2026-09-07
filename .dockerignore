@@ -3,6 +3,10 @@
 __pycache__/
 *.pyc
 .venv/
+venv/
+.DS_Store
+**/.DS_Store
 outputs/
 mlruns/
 .pytest_cache/
+

@@ -1,0 +1,28 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='900' height='500' viewBox='0 0 900 500'>
+<style> .title{font:700 22px Arial;} .label{font:12px Arial;} .axis{stroke:#222;stroke-width:1;} .bar{fill:#2E6F95;} .grid{stroke:#ddd;stroke-width:1;} </style>
+<text x='450.0' y='32' text-anchor='middle' class='title'>K-Means: Silhouette by k</text>
+<line x1='80' y1='420.0' x2='860' y2='420.0' class='grid' />
+<text x='72' y='424.0' text-anchor='end' class='label'>0.000</text>
+<line x1='80' y1='348.0' x2='860' y2='348.0' class='grid' />
+<text x='72' y='352.0' text-anchor='end' class='label'>0.115</text>
+<line x1='80' y1='276.0' x2='860' y2='276.0' class='grid' />
+<text x='72' y='280.0' text-anchor='end' class='label'>0.229</text>
+<line x1='80' y1='204.0' x2='860' y2='204.0' class='grid' />
+<text x='72' y='208.0' text-anchor='end' class='label'>0.344</text>
+<line x1='80' y1='132.00000000000003' x2='860' y2='132.00000000000003' class='grid' />
+<text x='72' y='136.00000000000003' text-anchor='end' class='label'>0.459</text>
+<line x1='80' y1='60.0' x2='860' y2='60.0' class='grid' />
+<text x='72' y='64.0' text-anchor='end' class='label'>0.573</text>
+<line x1='80' y1='60' x2='80' y2='420' class='axis' />
+<line x1='80' y1='420' x2='860' y2='420' class='axis' />
+<rect x='80.0' y='185.48778885351652' width='252.0' height='234.51221114648348' class='bar' />
+<text x='206.0' y='179.48778885351652' text-anchor='middle' class='label'>0.373</text>
+<text x='206.0' y='438' text-anchor='middle' class='label'>10</text>
+<rect x='344.0' y='98.34716403348406' width='252.0' height='321.6528359665159' class='bar' />
+<text x='470.0' y='92.34716403348406' text-anchor='middle' class='label'>0.512</text>
+<text x='470.0' y='438' text-anchor='middle' class='label'>12</text>
+<rect x='608.0' y='92.72727272727275' width='252.0' height='327.27272727272725' class='bar' />
+<text x='734.0' y='86.72727272727275' text-anchor='middle' class='label'>0.521</text>
+<text x='734.0' y='438' text-anchor='middle' class='label'>15</text>
+<text x='18' y='250.0' text-anchor='middle' class='label' transform='rotate(-90 18 250.0)'>Silhouette</text>
+</svg>

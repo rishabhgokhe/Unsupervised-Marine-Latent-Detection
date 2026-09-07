@@ -1,0 +1,49 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='500' viewBox='0 0 1200 500'>
+<style> .title{font:700 22px Arial;} .label{font:12px Arial;} .axis{stroke:#222;stroke-width:1;} .bar{fill:#2E6F95;} .grid{stroke:#ddd;stroke-width:1;} </style>
+<text x='600.0' y='32' text-anchor='middle' class='title'>Missing Ratio After Imputation</text>
+<line x1='80' y1='420.0' x2='1160' y2='420.0' class='grid' />
+<text x='72' y='424.0' text-anchor='end' class='label'>0.00</text>
+<line x1='80' y1='348.0' x2='1160' y2='348.0' class='grid' />
+<text x='72' y='352.0' text-anchor='end' class='label'>0.21</text>
+<line x1='80' y1='276.0' x2='1160' y2='276.0' class='grid' />
+<text x='72' y='280.0' text-anchor='end' class='label'>0.42</text>
+<line x1='80' y1='204.0' x2='1160' y2='204.0' class='grid' />
+<text x='72' y='208.0' text-anchor='end' class='label'>0.62</text>
+<line x1='80' y1='132.00000000000003' x2='1160' y2='132.00000000000003' class='grid' />
+<text x='72' y='136.00000000000003' text-anchor='end' class='label'>0.83</text>
+<line x1='80' y1='60.0' x2='1160' y2='60.0' class='grid' />
+<text x='72' y='64.0' text-anchor='end' class='label'>1.04</text>
+<line x1='80' y1='60' x2='80' y2='420' class='axis' />
+<line x1='80' y1='420' x2='1160' y2='420' class='axis' />
+<rect x='80.0' y='133.9692354380441' width='97.2' height='286.0307645619559' class='bar' />
+<text x='128.6' y='127.96923543804411' text-anchor='middle' class='label'>0.83</text>
+<text x='128.6' y='438' text-anchor='middle' class='label'>WIND_SPEED</text>
+<rect x='189.2' y='262.2016956546479' width='97.2' height='157.7983043453521' class='bar' />
+<text x='237.79999999999998' y='256.2016956546479' text-anchor='middle' class='label'>0.46</text>
+<text x='237.79999999999998' y='438' text-anchor='middle' class='label'>SEA_LVL_PRES</text>
+<rect x='298.4' y='146.60129355309826' width='97.2' height='273.39870644690177' class='bar' />
+<text x='347.0' y='140.60129355309826' text-anchor='middle' class='label'>0.79</text>
+<text x='347.0' y='438' text-anchor='middle' class='label'>AIR_TEMP</text>
+<rect x='407.6' y='318.8069722891338' width='97.2' height='101.1930277108662' class='bar' />
+<text x='456.20000000000005' y='312.8069722891338' text-anchor='middle' class='label'>0.29</text>
+<text x='456.20000000000005' y='438' text-anchor='middle' class='label'>SEA_SURF_TEMP</text>
+<rect x='516.8' y='146.0550423913662' width='97.2' height='273.9449576086338' class='bar' />
+<text x='565.4' y='140.0550423913662' text-anchor='middle' class='label'>0.79</text>
+<text x='565.4' y='438' text-anchor='middle' class='label'>DEW_PT_TEMP</text>
+<rect x='626.0' y='98.87259829675855' width='97.2' height='321.12740170324145' class='bar' />
+<text x='674.6' y='92.87259829675855' text-anchor='middle' class='label'>0.93</text>
+<text x='674.6' y='438' text-anchor='middle' class='label'>WAVE_PERIOD</text>
+<rect x='735.2' y='99.96510062022267' width='97.2' height='320.03489937977736' class='bar' />
+<text x='783.8000000000001' y='93.96510062022267' text-anchor='middle' class='label'>0.92</text>
+<text x='783.8000000000001' y='438' text-anchor='middle' class='label'>WAVE_HGT</text>
+<rect x='844.4' y='92.72727272727275' width='97.2' height='327.27272727272725' class='bar' />
+<text x='893.0' y='86.72727272727275' text-anchor='middle' class='label'>0.95</text>
+<text x='893.0' y='438' text-anchor='middle' class='label'>SWELL_PERIOD</text>
+<rect x='953.6' y='94.0246192363864' width='97.2' height='325.9753807636136' class='bar' />
+<text x='1002.2' y='88.0246192363864' text-anchor='middle' class='label'>0.94</text>
+<text x='1002.2' y='438' text-anchor='middle' class='label'>SWELL_HGT</text>
+<rect x='1062.8000000000002' y='102.28666805758398' width='97.2' height='317.713331942416' class='bar' />
+<text x='1111.4' y='96.28666805758398' text-anchor='middle' class='label'>0.92</text>
+<text x='1111.4' y='438' text-anchor='middle' class='label'>TOT_CLD_AMT</text>
+<text x='18' y='250.0' text-anchor='middle' class='label' transform='rotate(-90 18 250.0)'>Missing Ratio</text>
+</svg>

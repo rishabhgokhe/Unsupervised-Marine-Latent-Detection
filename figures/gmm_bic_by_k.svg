@@ -1,0 +1,28 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='900' height='500' viewBox='0 0 900 500'>
+<style> .title{font:700 22px Arial;} .label{font:12px Arial;} .axis{stroke:#222;stroke-width:1;} .bar{fill:#2E6F95;} .grid{stroke:#ddd;stroke-width:1;} </style>
+<text x='450.0' y='32' text-anchor='middle' class='title'>GMM: BIC by k</text>
+<line x1='80' y1='420.0' x2='860' y2='420.0' class='grid' />
+<text x='72' y='424.0' text-anchor='end' class='label'>-0.00e+00</text>
+<line x1='80' y1='348.0' x2='860' y2='348.0' class='grid' />
+<text x='72' y='352.0' text-anchor='end' class='label'>-1.70e+06</text>
+<line x1='80' y1='276.0' x2='860' y2='276.0' class='grid' />
+<text x='72' y='280.0' text-anchor='end' class='label'>-3.40e+06</text>
+<line x1='80' y1='203.99999999999997' x2='860' y2='203.99999999999997' class='grid' />
+<text x='72' y='207.99999999999997' text-anchor='end' class='label'>-5.09e+06</text>
+<line x1='80' y1='132.0' x2='860' y2='132.0' class='grid' />
+<text x='72' y='136.0' text-anchor='end' class='label'>-6.79e+06</text>
+<line x1='80' y1='60.0' x2='860' y2='60.0' class='grid' />
+<text x='72' y='64.0' text-anchor='end' class='label'>-8.49e+06</text>
+<line x1='80' y1='60' x2='80' y2='420' class='axis' />
+<line x1='80' y1='420' x2='860' y2='420' class='axis' />
+<rect x='80.0' y='25.911198476893738' width='252.0' height='394.08880152310627' class='bar' />
+<text x='206.0' y='19.911198476893738' text-anchor='middle' class='label'>-9.29e+06</text>
+<text x='206.0' y='438' text-anchor='middle' class='label'>10</text>
+<rect x='344.0' y='54.89876397822259' width='252.0' height='365.1012360217774' class='bar' />
+<text x='470.0' y='48.89876397822259' text-anchor='middle' class='label'>-8.61e+06</text>
+<text x='470.0' y='438' text-anchor='middle' class='label'>12</text>
+<rect x='608.0' y='92.72727272727278' width='252.0' height='327.27272727272725' class='bar' />
+<text x='734.0' y='86.72727272727278' text-anchor='middle' class='label'>-7.72e+06</text>
+<text x='734.0' y='438' text-anchor='middle' class='label'>15</text>
+<text x='18' y='250.0' text-anchor='middle' class='label' transform='rotate(-90 18 250.0)'>BIC</text>
+</svg>

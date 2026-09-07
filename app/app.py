@@ -80,8 +80,24 @@ def _load_input_df(
     return None
 
 
+def _render_docs_page() -> None:
+    st.markdown("## Project Docs")
+    if st.button("Back to Project Overview", use_container_width=True):
+        st.session_state.page = "landing"
+        st.rerun()
+    readme_path = Path("README.md")
+    if readme_path.exists():
+        st.markdown(readme_path.read_text(encoding="utf-8"))
+    else:
+        st.info("README.md not found in project root.")
+
+
 def main() -> None:
     st.set_page_config(layout="wide", page_title="Unsupervised Marine Hidden Regime Discovery")
+
+    if st.session_state.get("page") == "docs":
+        _render_docs_page()
+        return
 
     st.markdown(
         """
@@ -162,15 +178,13 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    if "page" not in st.session_state:
-        st.session_state.page = "home"
-
     with st.sidebar:
         st.markdown("**Unsupervised Marine Regime Intelligence**")
         st.caption("Production-grade dashboard for latent regime discovery and operational insight.")
         st.divider()
         if st.button("Project Docs", use_container_width=True):
             st.session_state.page = "docs"
+            st.rerun()
         st.subheader("Deployment")
         st.caption("Artifacts and runtime configuration")
         artifacts_dir = st.text_input("Artifacts directory", value="artifacts/latest")
@@ -186,18 +200,6 @@ def main() -> None:
     except Exception as exc:
         st.error(f"Failed to load models/config: {exc}")
         st.info("Required artifacts: feature_scaler.pkl and hmm.pkl. Optional for hierarchical mode: autoencoder_dense.pt, macro_mapping.pkl, dense_autoencoder_config.json.")
-        return
-
-    if st.session_state.page == "docs":
-        st.markdown("## Project Docs")
-        if st.button("Back to Home", use_container_width=True):
-            st.session_state.page = "home"
-            st.rerun()
-        readme_path = Path("README.md")
-        if readme_path.exists():
-            st.markdown(readme_path.read_text(encoding="utf-8"))
-        else:
-            st.info("README.md not found in project root.")
         return
 
     device_label = "GPU (cuda)" if str(models.device).lower().startswith("cuda") else f"CPU ({models.device})"
@@ -391,54 +393,6 @@ def main() -> None:
                 file_name="sensor_health.csv",
                 mime="text/csv",
                 key="dl_sensor_health",
-            )
-
-    share_pivot, dominant_months, station_dominant = monthly_regime_shares(out_view, station_col)
-    health_df = sensor_health_report(
-        prep.processed,
-        station_col=cfg.data.station_col,
-        timestamp_col=cfg.data.timestamp_col,
-        numeric_columns=cfg.data.numeric_columns,
-    )
-    overall_plan, station_plan = operational_planning_summary(out_view, station_col)
-
-    with st.sidebar.expander("Tools", expanded=False):
-        st.markdown("Detected columns")
-        st.write(sorted(df.columns))
-        st.markdown("Downloads")
-        st.download_button(
-            label="Download regime_labels.csv",
-            data=out_view.to_csv(index=False).encode("utf-8"),
-            file_name="regime_labels.csv",
-            mime="text/csv",
-        )
-        if not early_warning_df.empty:
-            st.download_button(
-                label="Download early_warning.csv",
-                data=early_warning_df.to_csv(index=False).encode("utf-8"),
-                file_name="early_warning.csv",
-                mime="text/csv",
-            )
-        if not dominant_months.empty:
-            st.download_button(
-                label="Download seasonal_summary.csv",
-                data=dominant_months.to_csv(index=False).encode("utf-8"),
-                file_name="seasonal_summary.csv",
-                mime="text/csv",
-            )
-        if not overall_plan.empty:
-            st.download_button(
-                label="Download operational_planning.csv",
-                data=overall_plan.to_csv(index=False).encode("utf-8"),
-                file_name="operational_planning.csv",
-                mime="text/csv",
-            )
-        if not health_df.empty:
-            st.download_button(
-                label="Download sensor_health.csv",
-                data=health_df.to_csv(index=False).encode("utf-8"),
-                file_name="sensor_health.csv",
-                mime="text/csv",
             )
 
     tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(

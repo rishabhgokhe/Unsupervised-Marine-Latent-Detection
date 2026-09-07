@@ -1,0 +1,37 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1100' height='500' viewBox='0 0 1100 500'>
+<style> .title{font:700 22px Arial;} .label{font:12px Arial;} .axis{stroke:#222;stroke-width:1;} .bar{fill:#2E6F95;} .grid{stroke:#ddd;stroke-width:1;} </style>
+<text x='550.0' y='32' text-anchor='middle' class='title'>Mean Regime Duration by Model</text>
+<line x1='80' y1='420.0' x2='1060' y2='420.0' class='grid' />
+<text x='72' y='424.0' text-anchor='end' class='label'>0.0</text>
+<line x1='80' y1='348.0' x2='1060' y2='348.0' class='grid' />
+<text x='72' y='352.0' text-anchor='end' class='label'>24.1</text>
+<line x1='80' y1='276.0' x2='1060' y2='276.0' class='grid' />
+<text x='72' y='280.0' text-anchor='end' class='label'>48.3</text>
+<line x1='80' y1='203.99999999999997' x2='1060' y2='203.99999999999997' class='grid' />
+<text x='72' y='207.99999999999997' text-anchor='end' class='label'>72.4</text>
+<line x1='80' y1='132.0' x2='1060' y2='132.0' class='grid' />
+<text x='72' y='136.0' text-anchor='end' class='label'>96.5</text>
+<line x1='80' y1='60.0' x2='1060' y2='60.0' class='grid' />
+<text x='72' y='64.0' text-anchor='end' class='label'>120.7</text>
+<line x1='80' y1='60' x2='80' y2='420' class='axis' />
+<line x1='80' y1='420' x2='1060' y2='420' class='axis' />
+<rect x='80.0' y='286.11570247933884' width='153.33333333333334' height='133.88429752066116' class='bar' />
+<text x='156.66666666666669' y='280.11570247933884' text-anchor='middle' class='label'>44.9</text>
+<text x='156.66666666666669' y='438' text-anchor='middle' class='label'>K-Means</text>
+<rect x='245.33333333333334' y='276.3192904656319' width='153.33333333333334' height='143.68070953436808' class='bar' />
+<text x='322.0' y='270.3192904656319' text-anchor='middle' class='label'>48.2</text>
+<text x='322.0' y='438' text-anchor='middle' class='label'>GMM</text>
+<rect x='410.6666666666667' y='270.86306098964326' width='153.33333333333334' height='149.13693901035674' class='bar' />
+<text x='487.33333333333337' y='264.86306098964326' text-anchor='middle' class='label'>50.0</text>
+<text x='487.33333333333337' y='438' text-anchor='middle' class='label'>HMM</text>
+<rect x='576.0' y='283.00211416490487' width='153.33333333333334' height='136.99788583509513' class='bar' />
+<text x='652.6666666666666' y='277.00211416490487' text-anchor='middle' class='label'>45.9</text>
+<text x='652.6666666666666' y='438' text-anchor='middle' class='label'>DenseAE+KMeans</text>
+<rect x='741.3333333333334' y='336.44100580270793' width='153.33333333333334' height='83.55899419729207' class='bar' />
+<text x='818.0' y='330.44100580270793' text-anchor='middle' class='label'>28.0</text>
+<text x='818.0' y='438' text-anchor='middle' class='label'>DenseAE+HMM</text>
+<rect x='906.6666666666667' y='92.72727272727275' width='153.33333333333334' height='327.27272727272725' class='bar' />
+<text x='983.3333333333334' y='86.72727272727275' text-anchor='middle' class='label'>109.7</text>
+<text x='983.3333333333334' y='438' text-anchor='middle' class='label'>DenseAE+HMM(M)</text>
+<text x='18' y='250.0' text-anchor='middle' class='label' transform='rotate(-90 18 250.0)'>Mean Duration (windows)</text>
+</svg>
